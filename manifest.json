@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "metadata": {
+    "appmode": "static",
+    "primary_html": "analysis/categorical_data_analysis_combined.html"
+  },
+  "packages": {},
+  "files": {
+    "analysis/categorical_data_analysis_combined.html": {
+      "checksum": "d9764666e32b14efc53d25c44464caad87ae3a5c61b1f2637546f9a4761cd30b"
+    }
+  }
+}
