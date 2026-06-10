@@ -58,7 +58,7 @@ report's relative file paths (`read_csv("cmc.csv")`, etc.) resolve without any e
 
 ```bash
 # 1. clone
-git clone https://github.com/your-username/advanced-categorical-data-analysis.git
+git clone https://github.com/drfittri/advanced-categorical-data-analysis.git
 cd advanced-categorical-data-analysis
 
 # 2. install the R packages (see REPRODUCE.md for the full list)

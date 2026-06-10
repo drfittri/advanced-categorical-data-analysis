@@ -46,199 +46,478 @@ execute:
 ---
 
 ```{=html}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
 :root {
-  --brand-primary: #1b3a5b;
-  --brand-secondary: #2c7fb8;
-  --brand-accent: #d9772b;
-  --brand-ordinal: #2c7fb8;
-  --brand-multinomial: #7b4ea3;
-  --brand-correlated: #1a9988;
-  --brand-soft: #f4f7fb;
-  --brand-ink: #243140;
+  --brand-primary:      #1b3a5b;
+  --brand-secondary:    #2c7fb8;
+  --brand-accent:       #d9772b;
+  --brand-ordinal:      #2c7fb8;
+  --brand-multinomial:  #7b4ea3;
+  --brand-correlated:   #1a9988;
+  --brand-soft:         #f0f5fb;
+  --brand-ink:          #1e2d3d;
+  --brand-muted:        #5a6e82;
+  --brand-border:       #dce5ef;
+  --brand-surface:      #ffffff;
+  --brand-page:         #f7f9fc;
+  --shadow-sm:  0 1px 4px rgba(27,58,91,.07);
+  --shadow-md:  0 4px 16px rgba(27,58,91,.10);
+  --shadow-lg:  0 10px 32px rgba(27,58,91,.14);
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --transition: 0.18s ease;
 }
 
-/* ---------- Global typography ---------- */
-body {
+/* ============================================================
+   GOOGLE FONTS ASSIGNMENT
+   ============================================================ */
+body, .quarto-title-block {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: var(--brand-ink);
-  font-size: 1.02rem;
-  line-height: 1.7;
+  font-size: 1.01rem;
+  line-height: 1.75;
+  background: var(--brand-page);
+}
+h1, h2, h3, h4, h5, h6,
+.quarto-title-block .title,
+.quarto-title-block .subtitle {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+}
+code, pre, .sourceCode, kbd, samp {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 p { text-align: justify; }
-.quarto-title-block .quarto-title .title {
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  color: var(--brand-primary);
-}
-.quarto-title-block .subtitle {
-  color: var(--brand-secondary);
-  font-weight: 500;
+
+/* ============================================================
+   MAIN CONTENT AREA — white card
+   ============================================================ */
+#quarto-content .quarto-container,
+.page-columns .column-body,
+body > .quarto-container {
+  background: var(--brand-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-/* ---------- Title banner ---------- */
+/* ============================================================
+   TITLE BLOCK
+   ============================================================ */
 #title-block-header.quarto-title-block.default {
-  background: linear-gradient(135deg, #16324f 0%, #1b3a5b 45%, #2c7fb8 100%);
+  background: linear-gradient(135deg, #0f2238 0%, #1b3a5b 40%, #2360a0 75%, #2c7fb8 100%);
   color: #fff;
-  padding: 2.4rem 2rem 1.6rem;
-  border-radius: 14px;
-  margin-bottom: 2.2rem;
-  box-shadow: 0 10px 30px rgba(22, 50, 79, 0.25);
+  padding: 3rem 2.5rem 2rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 2.5rem;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
 }
-#title-block-header.quarto-title-block.default .title,
-#title-block-header.quarto-title-block.default .subtitle,
-#title-block-header.quarto-title-block.default .quarto-title-meta-heading,
-#title-block-header.quarto-title-block.default .quarto-title-meta-contents,
-#title-block-header.quarto-title-block.default a {
+#title-block-header.quarto-title-block.default::before {
+  content: "";
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(44,127,184,.35) 0%, transparent 70%);
+  pointer-events: none;
+}
+#title-block-header.quarto-title-block.default::after {
+  content: "";
+  position: absolute;
+  bottom: -60px; left: 30%;
+  width: 320px; height: 180px;
+  background: radial-gradient(ellipse, rgba(26,153,136,.20) 0%, transparent 65%);
+  pointer-events: none;
+}
+#title-block-header.quarto-title-block.default .title {
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.5px;
   color: #ffffff !important;
+  line-height: 1.22;
+  margin-bottom: 0.4rem;
+}
+#title-block-header.quarto-title-block.default .subtitle {
+  font-size: 1.08rem;
+  font-weight: 500;
+  color: rgba(255,255,255,.85) !important;
+  margin-bottom: 1.4rem;
+  letter-spacing: 0.1px;
 }
 #title-block-header.quarto-title-block.default .quarto-title-meta-heading {
   text-transform: uppercase;
-  letter-spacing: 1.2px;
-  font-size: 0.72rem;
-  opacity: 0.85;
+  letter-spacing: 1.4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.65) !important;
+  margin-bottom: 0.15rem;
+}
+#title-block-header.quarto-title-block.default .quarto-title-meta-contents,
+#title-block-header.quarto-title-block.default .quarto-title-meta-contents p,
+#title-block-header.quarto-title-block.default a {
+  color: rgba(255,255,255,.92) !important;
+}
+#title-block-header.quarto-title-block.default .quarto-title-meta {
+  margin-top: 1.2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2.5rem;
+}
+#title-block-header.quarto-title-block.default .quarto-title-meta-contents p {
+  margin: 0;
+  font-size: 0.93rem;
+  font-weight: 500;
 }
 
-/* ---------- Section headings ---------- */
+/* ============================================================
+   SECTION HEADINGS
+   ============================================================ */
 h1 {
-  color: var(--brand-primary);
+  font-size: 1.75rem;
   font-weight: 800;
-  margin-top: 2.6rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 3px solid var(--brand-secondary);
+  color: var(--brand-primary);
+  margin-top: 3rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 2.5px solid var(--brand-secondary);
+  letter-spacing: -0.3px;
 }
 h2 {
-  color: var(--brand-primary);
+  font-size: 1.32rem;
   font-weight: 700;
-  margin-top: 2rem;
+  color: var(--brand-primary);
+  margin-top: 2.4rem;
+  margin-bottom: 0.5rem;
+  padding-left: 0.7rem;
+  border-left: 4px solid var(--brand-secondary);
 }
-h3 { color: var(--brand-secondary); font-weight: 600; }
-h4 { color: var(--brand-ink); font-weight: 600; }
+h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--brand-secondary);
+  margin-top: 1.8rem;
+}
+h4 {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--brand-ink);
+  margin-top: 1.4rem;
+}
 
-/* ---------- Part banners ---------- */
+/* ============================================================
+   LINKS
+   ============================================================ */
+a {
+  color: var(--brand-secondary);
+  text-decoration: none;
+  transition: color var(--transition), text-decoration-color var(--transition);
+}
+a:hover { color: var(--brand-primary); text-decoration: underline; }
+
+/* ============================================================
+   PART BANNERS  (used with ::: {.part-banner .part-ordinal} etc.)
+   ============================================================ */
 .part-banner {
-  border-radius: 14px;
-  padding: 1.5rem 1.7rem;
-  margin: 1.4rem 0 1.8rem;
+  border-radius: var(--radius-md);
+  padding: 1.6rem 1.8rem;
+  margin: 1.6rem 0 2rem;
   color: #fff;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+.part-banner::after {
+  content: "";
+  position: absolute;
+  right: -20px; top: -20px;
+  width: 160px; height: 160px;
+  background: rgba(255,255,255,.06);
+  border-radius: 50%;
+  pointer-events: none;
 }
 .part-banner .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 2px;
-  font-size: 0.72rem;
+  letter-spacing: 2.5px;
+  font-size: 0.68rem;
   font-weight: 700;
-  opacity: 0.9;
+  opacity: 0.8;
+  font-family: 'Outfit', sans-serif;
 }
-.part-banner h2, .part-banner h3 { color: #fff; margin: 0.3rem 0 0.6rem; border: none; }
-.part-banner p { margin-bottom: 0; opacity: 0.96; }
-.part-ordinal     { background: linear-gradient(135deg, #2c7fb8, #1b5b8a); }
-.part-multinomial { background: linear-gradient(135deg, #7b4ea3, #563073); }
-.part-correlated  { background: linear-gradient(135deg, #1a9988, #0f6f62); }
+.part-banner h2,
+.part-banner h3 {
+  color: #fff !important;
+  margin: 0.25rem 0 0.5rem;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 1.45rem;
+}
+.part-banner p { margin-bottom: 0; opacity: 0.93; font-size: 0.97rem; }
+.part-ordinal     { background: linear-gradient(135deg, #1b5b8a 0%, #2c7fb8 100%); }
+.part-multinomial { background: linear-gradient(135deg, #563073 0%, #7b4ea3 100%); }
+.part-correlated  { background: linear-gradient(135deg, #0f6f62 0%, #1a9988 100%); }
 
-/* ---------- Overview cards ---------- */
+/* ============================================================
+   OVERVIEW CARDS
+   ============================================================ */
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin: 1.5rem 0;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.1rem;
+  margin: 1.6rem 0;
 }
 .overview-card {
-  background: var(--brand-soft);
+  background: var(--brand-surface);
+  border: 1px solid var(--brand-border);
   border-left: 5px solid var(--brand-secondary);
-  border-radius: 10px;
-  padding: 1.1rem 1.2rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-radius: var(--radius-md);
+  padding: 1.2rem 1.3rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition), transform var(--transition);
 }
-.overview-card h4 { margin-top: 0; color: var(--brand-primary); }
+.overview-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.overview-card h4 { margin-top: 0; color: var(--brand-primary); font-size: 1rem; }
 .overview-card .tag {
   display: inline-block;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   color: #fff;
-  padding: 0.15rem 0.6rem;
+  padding: 0.18rem 0.65rem;
   border-radius: 999px;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.55rem;
+  font-family: 'Outfit', sans-serif;
 }
 .tag-ordinal { background: var(--brand-ordinal); }
 .tag-multinomial { background: var(--brand-multinomial); }
 .tag-correlated { background: var(--brand-correlated); }
 
-/* ---------- Tables ---------- */
-table.table, .table {
-  font-size: 0.92rem;
+/* ============================================================
+   TABLES
+   ============================================================ */
+table {
+  font-size: 0.91rem;
   border-collapse: collapse;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin: 1rem 0 1.5rem;
 }
-.table thead th, table thead tr th {
-  background: var(--brand-primary);
+thead th, table thead tr th {
+  background: var(--brand-primary) !important;
   color: #fff !important;
-  border-bottom: none;
-}
-.table tbody tr:nth-child(even) { background: #f3f6fb; }
-.table tbody tr:hover { background: #e8f0fa; }
-caption, .table caption { color: var(--brand-secondary); font-weight: 600; caption-side: top; }
-
-/* ---------- Code ---------- */
-div.sourceCode {
-  border-radius: 10px;
-  border: 1px solid #e3e8ee;
-}
-.code-fold summary, details.code-fold > summary { color: var(--brand-secondary); font-weight: 600; }
-
-/* ---------- TOC ---------- */
-#TOC a.active, #toc-title { color: var(--brand-secondary) !important; }
-.sidebar nav[role="doc-toc"] ul > li > a.active {
-  border-left: 3px solid var(--brand-secondary);
+  font-family: 'Outfit', sans-serif;
   font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+  padding: 0.65rem 0.9rem;
+  border: none;
+}
+tbody td { padding: 0.55rem 0.9rem; border-top: 1px solid var(--brand-border); }
+tbody tr:nth-child(even) { background: var(--brand-soft); }
+tbody tr:hover { background: #e4eef8; transition: background var(--transition); }
+caption, .table caption {
+  color: var(--brand-secondary);
+  font-weight: 600;
+  font-size: 0.88rem;
+  caption-side: top;
+  text-align: left;
+  margin-bottom: 0.4rem;
+  padding: 0 0 0.3rem;
 }
 
-/* ---------- Reflection cards ---------- */
-.reflection-card {
-  background: #fff;
-  border: 1px solid #e3e8ee;
-  border-top: 5px solid var(--brand-accent);
-  border-radius: 12px;
-  padding: 1.3rem 1.5rem;
-  margin: 1.2rem 0;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+/* ============================================================
+   FIGURES
+   ============================================================ */
+.quarto-figure {
+  margin: 1.5rem 0;
 }
-.reflection-card .author-name { font-weight: 700; color: var(--brand-primary); font-size: 1.08rem; }
-.reflection-card .author-id { color: #6b7785; font-size: 0.85rem; margin-bottom: 0.6rem; }
+.quarto-figure figcaption, .figure-caption {
+  font-size: 0.86rem;
+  color: var(--brand-muted);
+  text-align: center;
+  font-style: italic;
+  margin-top: 0.4rem;
+}
+
+/* ============================================================
+   CODE BLOCKS
+   ============================================================ */
+div.sourceCode {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--brand-border);
+  box-shadow: var(--shadow-sm);
+  font-size: 0.87rem;
+  overflow: auto;
+}
+pre.sourceCode {
+  border-radius: var(--radius-md);
+  margin: 0;
+}
+/* Code fold toggle */
+details.code-fold > summary,
+details > summary.code-fold {
+  color: var(--brand-secondary);
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+details.code-fold > summary:hover { background: var(--brand-soft); }
+
+/* Code output */
+pre:not(.sourceCode) {
+  background: #f4f7fa;
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  padding: 0.75rem 1rem;
+}
+
+/* ============================================================
+   TOC SIDEBAR
+   ============================================================ */
+#TOC,
+nav#TOC,
+.sidebar nav[role="doc-toc"] {
+  font-size: 0.865rem;
+}
+.sidebar nav[role="doc-toc"] ul {
+  padding-left: 0.6rem;
+}
+.sidebar nav[role="doc-toc"] ul li a {
+  color: var(--brand-muted);
+  transition: color var(--transition), padding-left var(--transition);
+  display: block;
+  padding: 0.14rem 0;
+}
+.sidebar nav[role="doc-toc"] ul li a:hover {
+  color: var(--brand-secondary);
+  text-decoration: none;
+}
+.sidebar nav[role="doc-toc"] ul li a.active,
+#TOC a.active {
+  color: var(--brand-secondary) !important;
+  font-weight: 600;
+  border-left: 3px solid var(--brand-secondary);
+  padding-left: 0.5rem;
+}
+#toc-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--brand-primary) !important;
+  margin-bottom: 0.6rem;
+}
+
+/* ============================================================
+   BLOCKQUOTES
+   ============================================================ */
+blockquote {
+  border-left: 4px solid var(--brand-secondary);
+  background: var(--brand-soft);
+  padding: 0.7rem 1.1rem;
+  color: #334d63;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin: 1rem 0;
+  font-size: 0.97rem;
+}
+blockquote p { margin: 0; text-align: left; }
+
+/* ============================================================
+   HORIZONTAL RULES
+   ============================================================ */
+hr {
+  border: none;
+  border-top: 1px solid var(--brand-border);
+  margin: 2rem 0;
+}
+
+/* ============================================================
+   REFLECTION CARDS
+   ============================================================ */
+.reflection-card {
+  background: var(--brand-surface);
+  border: 1px solid var(--brand-border);
+  border-top: 5px solid var(--brand-accent);
+  border-radius: var(--radius-md);
+  padding: 1.4rem 1.6rem;
+  margin: 1.3rem 0;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+.reflection-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.reflection-card .author-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  color: var(--brand-primary);
+  font-size: 1.1rem;
+}
+.reflection-card .author-id { color: var(--brand-muted); font-size: 0.84rem; margin-bottom: 0.7rem; }
 .reflection-card .placeholder {
   color: #8a96a3;
   font-style: italic;
   background: #fbfafc;
-  border: 1px dashed #cfd6de;
-  border-radius: 8px;
-  padding: 1rem;
+  border: 1.5px dashed #cfd6de;
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.1rem;
+  font-size: 0.94rem;
 }
-.wordcount { font-size: 0.78rem; color: #9aa5b1; text-align: right; margin-top: 0.4rem; }
+.wordcount { font-size: 0.76rem; color: #9aa5b1; text-align: right; margin-top: 0.4rem; }
 
-/* ---------- GitHub box ---------- */
+/* ============================================================
+   GITHUB REPO BOX
+   ============================================================ */
 .repo-box {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.1rem;
   background: #0d1117;
   color: #e6edf3;
-  border-radius: 12px;
-  padding: 1.2rem 1.5rem;
-  margin: 1.2rem 0;
+  border-radius: var(--radius-md);
+  padding: 1.3rem 1.6rem;
+  margin: 1.3rem 0;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition);
 }
-.repo-box a { color: #58a6ff; font-weight: 600; word-break: break-all; }
-.repo-box .gh-mark { font-size: 2rem; line-height: 1; }
+.repo-box:hover { box-shadow: var(--shadow-lg); }
+.repo-box a { color: #58a6ff; font-weight: 600; word-break: break-all; transition: color var(--transition); }
+.repo-box a:hover { color: #79bcff; text-decoration: underline; }
+.repo-box .gh-mark { font-size: 2.2rem; line-height: 1; flex-shrink: 0; }
 
-/* ---------- Misc ---------- */
-blockquote {
-  border-left: 4px solid var(--brand-secondary);
-  background: var(--brand-soft);
-  padding: 0.6rem 1rem;
-  color: #3c4a59;
-  border-radius: 0 8px 8px 0;
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+@media print {
+  body { font-size: 0.92rem; background: #fff; }
+  #title-block-header.quarto-title-block.default {
+    background: #1b3a5b !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .part-banner {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .sidebar, #TOC, nav[role="doc-toc"] { display: none !important; }
+  thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  a { color: var(--brand-primary) !important; }
+  .repo-box { background: #0d1117 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
-hr { border-top: 1px solid #e3e8ee; }
-
 </style>
 ```
 
@@ -2178,7 +2457,7 @@ preds_by_clinic <- crossing(new_patient, clinic_id = levels(data_htn$clinic_id))
   arrange(prob)
 
 preds_by_clinic |>
-  slice(c(1:3, (n()-2):n())) |>
+  dplyr::slice(c(1:3, (n()-2):n())) |>
   kable(digits = 3,
       caption = "Predicted hypertension probability for the same patient profile, in the lowest- and highest-risk clinics")
 
@@ -2436,7 +2715,7 @@ loo_clusters <- map_dfr(
   arrange(desc(MCLS_like))
 
 loo_clusters |>
-  slice(1:6) |>
+  dplyr::slice(1:6) |>
   mutate(across(where(is.numeric), \(x) round(x, 5))) |>
   kable(caption = "Top six clinics by leave-one-cluster-out influence (DCLS- and MCLS-analogue).")
 
@@ -2628,7 +2907,7 @@ The full analytical project &mdash; the combined Quarto source, the three datase
 <div class="gh-mark">&#128187;</div>
 <div>
 <div style="font-size:0.78rem; letter-spacing:1px; text-transform:uppercase; opacity:0.7;">Project repository</div>
-<a href="https://github.com/your-username/advanced-categorical-data-analysis">https://github.com/your-username/advanced-categorical-data-analysis</a>
+<a href="https://github.com/drfittri/advanced-categorical-data-analysis">https://github.com/drfittri/advanced-categorical-data-analysis</a>
 </div>
 :::
 
