@@ -540,17 +540,17 @@ The document is organised as a guided progression. We begin with the **proportio
 ::: {.overview-grid}
 ::: {.overview-card}
 <span class="tag tag-ordinal">Part&nbsp;I</span>
-#### Ordinal Logistic Regression
+<h4>Ordinal Logistic Regression</h4>
 An ordered three-level diabetes status (No diabetes &rarr; Pre-diabetes &rarr; Diabetes) from the CDC BRFSS 2015 survey, modelled with the **proportional odds** cumulative link model (`ordinal::clm`). Full proportional-odds checking, pseudo-R², and manual probability reconstruction.
 :::
 ::: {.overview-card}
 <span class="tag tag-multinomial">Part&nbsp;II</span>
-#### Multinomial Logistic Regression
+<h4>Multinomial Logistic Regression</h4>
 An unordered three-category contraceptive method choice (no use / long-term / short-term) from the 1987 Indonesia survey, modelled with **`VGAM::vglm`** and cross-validated with **`nnet::multinom`**. Relative risk ratios, dose-response screening, and manual probability checks.
 :::
 ::: {.overview-card}
 <span class="tag tag-correlated">Part&nbsp;III</span>
-#### Correlated Binary Data
+<h4>Correlated Binary Data</h4>
 Hypertension among 1,000 patients nested in 25 clinics, analysed with a conditional **GLMM** (`lme4::glmer`) and a marginal **GEE** (`gee` / `geepack`). ICC, Median Odds Ratio, quadrature sensitivity, and the Neuhaus attenuation link between the two.
 :::
 :::
@@ -2932,28 +2932,28 @@ This section collects individual reflections from each group member on the analy
 ::: {.reflection-card}
 <div class="author-name">Nazirul Munir bin Abu Hassan</div>
 <div class="author-id">Student ID: 23202537</div>
-<div class="placeholder">[Reflection placeholder &mdash; approximately 200 words to be added by Nazirul Munir bin Abu Hassan. Suggested focus: your contribution to the analyses, the categorical-data concepts you found most challenging or rewarding, and what you would do differently next time.]</div>
+<div class="reflection-text"><p>Across this assignment I learned to let the structure of the outcome decide the model. The contraceptive method data came first, and because long-term and short-term methods have no natural ordering, multinomial logistic regression with no-use as the reference was the only defensible choice. Wife's education stood out as the strongest driver of long-term uptake, and cross-checking VGAM against nnet, where one expects the reference category last and the other first, showed me how easily a careless coding default distorts interpretation. The diabetes severity data was genuinely ordered, so I moved to the proportional odds model, but the nominal tests flagging non-proportionality warned me not to trust a single threshold-averaged odds ratio, prompting a partial proportional odds check. The hypertension clinic data pushed me hardest. Here the GLMM gave a cluster-specific picture while GEE gave the population-averaged effect a planner actually needs, and I selected the GEE working correlation through QIC with robust sandwich standard errors. What surprised me was how closely the two agreed, smoking near an odds ratio of 2.0 and physical activity near 0.84, a convergence explained by the very small intra-clinic correlation and its attenuation factor close to 0.98. Together these analyses shifted my thinking from the single patient toward population-level programme design.</p></div>
 <div class="wordcount">Target: ~200 words</div>
 :::
 
 ::: {.reflection-card}
 <div class="author-name">Mohd Fittri Fahmi bin Fauzi</div>
 <div class="author-id">Student ID: 23202545</div>
-<div class="placeholder">[Reflection placeholder &mdash; approximately 200 words to be added by Mohd Fittri Fahmi bin Fauzi. Suggested focus: your contribution to the analyses, the categorical-data concepts you found most challenging or rewarding, and what you would do differently next time.]</div>
+<div class="reflection-text"><p>This task enables me to look beyond the textbook understanding of logistic regression that I had carried from previous coursework. Most of the data we encounter in public health does not conform to a simple binary-outcome, independent-observations framework. Outcomes are ordinal, nominal, or clustered. Each structure demands a different extension of the logistic model, and working through all three in a single portfolio made the connections between them far clearer than studying each method in isolation would have. The concept I found most challenging was the distinction between the conditional GLMM and the marginal GEE approach for correlated binary data. I had read about the subject-specific versus population-averaged interpretation in the textbook, but it only crystallised when I compared the two models side by side on our hypertension clinic data and observed the systematic attenuation of coefficients. That moment of seeing the theory manifest in actual estimates was instructive. Moving forward, I would allocate less time to technical troubleshooting and more to developing the skill of translating model output into actionable insights for a non-statistical audience. As a future public health physician, knowing which R package to use matters far less than being able to look at an odds ratio from a GLMM and explain to a district health officer whether the finding justifies an intervention.</p></div>
 <div class="wordcount">Target: ~200 words</div>
 :::
 
 ::: {.reflection-card}
 <div class="author-name">Siti Nurhafizah binti Saharudin</div>
 <div class="author-id">Student ID: 23202464</div>
-<div class="placeholder">[Reflection placeholder &mdash; approximately 200 words to be added by Siti Nurhafizah binti Saharudin. Suggested focus: your contribution to the analyses, the categorical-data concepts you found most challenging or rewarding, and what you would do differently next time.]</div>
+<div class="reflection-text"><p>Before this module, I assumed any categorical outcome could be handled the same way. These three assignments corrected that assumption one by one. The ordinal regression taught me that order in the outcome matters, but only if that order behaves consistently across all levels. The diabetes severity analysis showed me what happens when you actually check that, rather than assume it. The multinomial analysis taught me the opposite lesson: do not force order onto categories that have none. Contraceptive method choice has no clinical ranking between long-term and short-term methods, and treating it as if it did would distort the results. The GLMM versus GEE assignment was the hardest to follow at first. Patients in the same clinic are not truly independent, they share the same doctor, the same screening practices, the same environment. Once I understood that, the bigger question became: after accounting for clustering, are we describing what happens inside one clinic, or across all clinics? GLMM answers the first. GEE answers the second. The same data, fitted two ways, produce different numbers because they are answering different questions. That was the clearest takeaway from all three assignments. Choosing the right model is not about software or syntax. It starts with understanding what the outcome actually is.</p></div>
 <div class="wordcount">Target: ~200 words</div>
 :::
 
 ::: {.reflection-card}
 <div class="author-name">Ahmad Zulfahmi bin Sha'ari</div>
 <div class="author-id">Student ID: 23202546</div>
-<div class="placeholder">[Reflection placeholder &mdash; approximately 200 words to be added by Ahmad Zulfahmi bin Sha'ari. Suggested focus: your contribution to the analyses, the categorical-data concepts you found most challenging or rewarding, and what you would do differently next time.]</div>
+<div class="reflection-text"><p>This assignment forced me to confront the diversity of categorical outcomes in a single sitting. Three analyses, three model families, each demanding a different analytical logic.</p><p>The ordinal logistic regression grounded me in an assumption I had glossed over before: that the proportional odds hold across all cutpoints. Verifying it with the Brant test felt like checking the structural integrity of a building before moving in. The multinomial analysis then shifted my thinking entirely. When the outcome has no natural order, forcing it into ordinality is not parsimony but distortion. Working through the relative risk ratios for contraceptive method choice, with my group, made that distinction feel real rather than textbook.</p><p>The GLMM versus GEE comparison was where the assignment truly stretched me. Seeing identical data produce different estimates depending on whether we conditioned on the clinic or marginalised over it surfaced a question I had not previously considered seriously: whose probability am I actually estimating? That question connects directly to whether findings translate to policy or clinical practice.</p><p>Doing this as a group of four meant each model had a different owner, but the comparisons across our work sharpened everyone's understanding. I left this assignment reading categorical outcomes differently than when I entered it.</p></div>
 <div class="wordcount">Target: ~200 words</div>
 :::
 
