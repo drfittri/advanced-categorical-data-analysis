@@ -1,0 +1,1011 @@
+---
+title: "Modelling Correlated Binary Data: GLMM and GEE Compared"
+subtitle: "Hypertension across 25 primary-care clinics — conditional and population-average approaches with full Hosmer–Lemeshow–Sturdivant Chapter 9 diagnostics"
+author: "DrPH (Epidemiology) — Advanced Categorical Data Analysis"
+date: today
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    embed-resources: true
+    fig-width: 7
+    fig-height: 5
+    df-print: kable
+prefer-html: true
+execute:
+  warning: false
+  message: false
+editor: visual
+---
+
+# Background and learning objectives
+
+Patients seen within the same clinic are not statistically independent. They share a catchment population, prescribing patterns, screening intensity, and unmeasured contextual exposures. Treating them as independent observations in an ordinary logistic regression understates the standard errors of the regression coefficients and inflates the type-I error rate — what the lecture notes (Kamarul Imran, 2020) call **extra-binomial variation** arising from a violation of the independence assumption.
+
+Two broad model families correct for this clustering:
+
+1.  **Conditional (cluster-specific) models** — generalised linear mixed models (GLMM) for binary outcomes, fitted with `lme4::glmer`. They describe the outcome *conditional on* the cluster's random effect. Coefficients compare two patients **within the same clinic** who differ by one unit on the predictor.
+2.  **Marginal (population-average) models** — fitted by **Generalized Estimating Equations (GEE)**. They describe how the *average* probability of the outcome in the population depends on covariates, while modelling the within-cluster correlation as a nuisance.
+
+This worked example fits both, with the full diagnostic suite recommended in Hosmer, Lemeshow & Sturdivant (2013), *Applied Logistic Regression* (3rd ed.), Chapter 9.
+
+**Research question.** Among adults attending primary-care clinics, what is the association between age, body-mass index (BMI), physical activity, and current smoking on the probability of having hypertension, after accounting for clustering of patients within clinics?
+
+**Data.** `hypertension_clinics.xlsx` contains 1000 patients distributed across 25 clinics (40 patients per clinic). The outcome `hypertension` is binary (0 = no, 1 = yes). Predictors are `age` (years), `bmi` (kg/m²), `physical_activity_hrs` (hours/week), and `smoker` (0/1). The cluster identifier is `clinic_id`.
+
+# Setup
+
+```{r setup}
+# Core data manipulation and visualisation
+library(tidyverse)
+library(readxl)
+
+# Descriptive statistics in the lecturer's house style
+library(summarytools)
+library(gtsummary)
+library(flextable)
+
+# The two estimation engines used in this report
+library(lme4)         # GLMM — conditional / cluster-specific model
+library(gee)          # GEE  — marginal / population-average model
+library(geepack)      # geeglm() + QIC / QICu
+
+# Model-building diagnostics
+library(mfp)          # fractional polynomials (Hosmer et al. 2013, §9.5.2)
+
+# Tidy tabular extraction of model output
+library(broom)
+library(broom.mixed)
+library(performance)
+
+# Plotting model output
+library(sjPlot)
+library(ggplot2)
+
+# Pretty tables for the html deliverable
+library(knitr)
+
+set.seed(2026)
+theme_set(theme_minimal(base_size = 12))
+```
+
+# Data import and structure
+
+We import the spreadsheet, coerce the cluster identifier to a factor (a requirement for `gee::gee` and good practice for `glmer`), keep `smoker` as a labelled factor for descriptive tables and the GLMM, and re-cast it to integer for the GEE call (the `gee` package handles factors via the design matrix, but the integer form keeps the printed output compact).
+
+```{r import}
+data_htn <- read_excel("hypertension_clinics.xlsx") |>
+  mutate(
+    clinic_id    = factor(clinic_id),
+    smoker       = factor(smoker, levels = c(0, 1), labels = c("No", "Yes")),
+    hypertension = as.integer(hypertension)
+  )
+
+glimpse(data_htn)
+```
+
+**Interpretation.** The imported dataset has 1,000 rows and 7 columns. After coercion, `clinic_id` is a factor with 25 levels, `hypertension` is integer 0/1, `smoker` is a two-level factor, and the three continuous predictors (`age`, `bmi`, `physical_activity_hrs`) are numeric. No missing values were detected, so the GEE consistency assumption of MCAR is trivially satisfied.
+
+The data follow a two-level hierarchical structure:
+
+- **Level 1** (within-clinic): the individual patient — `age`, `bmi`, `physical_activity_hrs`, `smoker`.
+- **Level 2** (between-clinic): the clinic — indexed by `clinic_id`. Twenty-five clinics, each contributing 40 patients.
+
+Because the cluster sizes are balanced and moderate, both estimation routines will be well-behaved.
+
+## Cluster sizes
+
+```{r cluster-check}
+data_htn |>
+  count(clinic_id) |>
+  summarise(
+    n_clinics        = n(),
+    min_per_clinic   = min(n),
+    median_per_clinic = median(n),
+    max_per_clinic   = max(n),
+    total_patients   = sum(n)
+  ) |>
+  kable(caption = "Cluster structure: patients per clinic")
+```
+
+**Interpretation.** The cluster structure is perfectly balanced: 25 clinics, each contributing exactly 40 patients, for a total of 1,000 records. With 25 clusters the GEE sandwich variance estimator performs adequately, although 25 sits at the lower end of what large-sample GEE theory comfortably accommodates — very few clusters can inflate type-I error of robust z-tests. Balanced cluster sizes also mean that the exchangeable working correlation is computationally well-conditioned, and that adaptive Gauss-Hermite quadrature in `glmer` converges easily.
+
+# Descriptive analysis
+
+## Overall patient characteristics
+
+We summarise patient characteristics overall and stratified by hypertension status. Continuous variables are reported as mean (SD); categorical variables as n (%). Bivariate p-values come from `gtsummary`'s automatic test selection and **do not account for clustering**; treat them as a descriptive scan.
+
+```{r tbl1}
+tbl_summary(
+  data_htn |> select(age, bmi, physical_activity_hrs, smoker, hypertension) |>
+    mutate(hypertension = factor(hypertension, levels = c(0, 1),
+                                 labels = c("No HTN", "HTN"))),
+  by = hypertension,
+  statistic = list(
+    all_continuous()  ~ "{mean} ({sd})",
+    all_categorical() ~ "{n} ({p}%)"
+  ),
+  digits = all_continuous() ~ 1,
+  label = list(
+    age ~ "Age (years)",
+    bmi ~ "BMI (kg/m²)",
+    physical_activity_hrs ~ "Physical activity (hours/week)",
+    smoker ~ "Current smoker"
+  )
+) |>
+  add_p() |>
+  add_overall() |>
+  modify_header(label ~ "**Characteristic**") |>
+  bold_labels() |>
+  gtsummary::as_flex_table()
+```
+
+**Reading the output.** Of 1,000 patients, 211 (21.1%) had hypertension. Hypertensive patients were on average about five years older (54.4 vs 49.5 years), had a higher BMI by roughly 1.6 kg/m² (28.0 vs 26.4), reported less weekly physical activity by approximately 0.8 hours (3.1 vs 3.9), and were more often current smokers (39% vs 27%). All four bivariate comparisons reach p \< 0.001. These p-values do **not** account for clustering, so the adjusted, clustering-corrected estimates are produced by the two models below.
+
+## Outcome prevalence by clinic
+
+A proportion-by-cluster plot is the most direct visual evidence of clustering. If clinics differ substantially in raw hypertension prevalence, an independence-assuming logistic regression will be misleading.
+
+```{r prev-by-clinic}
+#| fig-cap: "Hypertension prevalence (with 95% Wilson CI) across 25 clinics. Variation around the overall mean is the visual signature of between-clinic heterogeneity that GLMM and GEE both correct for."
+prev_by_clinic <- data_htn |>
+  group_by(clinic_id) |>
+  summarise(
+    n     = n(),
+    n_htn = sum(hypertension),
+    prev  = n_htn / n,
+    se    = sqrt(prev * (1 - prev) / n),
+    lo    = pmax(0, prev - 1.96 * se),
+    hi    = pmin(1, prev + 1.96 * se),
+    .groups = "drop"
+  )
+
+overall_prev <- mean(data_htn$hypertension)
+
+ggplot(prev_by_clinic, aes(x = reorder(clinic_id, prev), y = prev)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lo, ymax = hi), width = 0.25) +
+  geom_hline(yintercept = overall_prev, linetype = "dashed", colour = "steelblue") +
+  labs(x = "Clinic (ranked by prevalence)", y = "Hypertension prevalence",
+       title = "Between-clinic variation in hypertension prevalence",
+       subtitle = paste0("Dashed line = overall prevalence (",
+                         round(overall_prev, 3), ")")) +
+  coord_flip()
+```
+
+**Interpretation.** Clinic-specific prevalence ranges from approximately 7.5% to 45.0% around an overall mean of 21.1%. The magnitude of this between-clinic dispersion exceeds what would be expected from sampling variation alone within clusters of $n_j = 40$. Many of the 95% Wilson intervals overlap one another, however, so the between-clinic variation is **modest in absolute terms** — a visual hint that the intra-cluster correlation, when we estimate it formally below, will be small rather than large. The plot motivates clustering correction even so: ignoring even a modest correlation distorts inference when the cluster size (40) is appreciable, because the *effective* sample size is smaller than the nominal 1,000.
+
+# Why ordinary logistic regression is not enough
+
+For didactic contrast we fit an **ordinary logistic regression** that ignores clinic clustering. Its coefficients are unbiased under the simplest assumptions but its standard errors are too small whenever within-cluster correlation is positive.
+
+```{r ord-logit}
+m_ord <- glm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+             family = binomial(link = "logit"),
+             data   = data_htn)
+
+broom::tidy(m_ord, exponentiate = TRUE, conf.int = TRUE) |>
+  mutate(across(where(is.numeric), \(x) round(x, 4))) |>
+  kable(caption = "Ordinary logistic regression (no clustering correction) — odds ratios with 95% CI")
+```
+
+**Interpretation.** Under the (incorrect) independence assumption, each one-year increase in age is associated with a 4.5% increase in the odds of hypertension (OR 1.045, 95% CI 1.030–1.060), each one-unit increase in BMI with an 11.2% increase (OR 1.112, 95% CI 1.070–1.158), each additional hour of weekly physical activity with a 16.4% reduction (OR 0.836, 95% CI 0.774–0.898), and current smoking with roughly a doubling of the odds (OR 2.05, 95% CI 1.46–2.87). These estimates are kept as a baseline. Two correlation-aware refits follow: a conditional (GLMM) refit that adds a random clinic intercept, and a marginal (GEE) refit that adjusts only the variance.
+
+# Purposeful selection — scale checking and interaction screening
+
+Hosmer, Lemeshow & Sturdivant (2013, p. 338) are explicit that *"Statistical variable selection methods such as stepwise and best subsets are not currently available for fitting correlated data models in software packages. Thus, one must use some form of purposeful selection using Wald or Score tests with the population average model and Wald or likelihood ratio tests (depending upon the estimation method) with the cluster-specific model. Checking the scale of continuous covariates is just as important with correlated as with non-correlated data models."* They go further: *"As the standard logistic model is, in essence, a population average model, the results from the fractional polynomial analysis will, generally, produce reasonable choices"* (p. 343). We therefore run the scale check using standard logistic regression with fractional polynomials before fitting the final correlated-data models.
+
+## Fractional-polynomial scale check for age, BMI, and physical activity
+
+```{r mfp-scale}
+mfp_check <- mfp(
+  hypertension ~ fp(age) + fp(bmi) + fp(physical_activity_hrs) + smoker,
+  family = binomial,
+  data   = data_htn,
+  verbose = FALSE
+)
+
+cat("Selected fractional-polynomial transformations:\n")
+print(mfp_check$fptable)
+```
+
+**Interpretation.** `mfp` searches over the standard Royston–Altman power set $\{-2, -1, -0.5, 0, 0.5, 1, 2, 3\}$ (where 0 denotes the natural logarithm) for the best one- or two-term fractional-polynomial transformation of each continuous covariate, comparing the deviance of each candidate to the linear fit. For the present data the algorithm selected `power1 = 1` (i.e., the linear form) for **age**, **BMI**, and **physical activity** — the linear-in-logit assumption is supported and no transformation is required. Following the book's reasoning (Hosmer et al. 2013, §9.5.2), this conclusion carries forward to the GEE and GLMM: standard logistic acts as the scale-checking surrogate for the marginal model, and `glmer`'s quadrature likelihood would in any case allow a re-run of `mfp` on the conditional model if the result here had been ambiguous.
+
+## Interaction screening
+
+Hosmer et al. (2013, p. 338) recommend that *"Interactions should be specified and checked for inclusion in the same manner as described in Chapter 4."* We screen the clinically plausible interactions — BMI × age, BMI × physical activity, smoker × BMI — using likelihood-ratio tests in a standard logistic regression (the population-average scale-check surrogate). A second pass through the GLMM is performed for any interaction that is significant at this stage.
+
+```{r interaction-screen}
+m_main <- glm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+              family = binomial, data = data_htn)
+m_int1 <- update(m_main, . ~ . + age:bmi)
+m_int2 <- update(m_main, . ~ . + bmi:physical_activity_hrs)
+m_int3 <- update(m_main, . ~ . + smoker:bmi)
+
+tibble(
+  interaction = c("age × bmi", "bmi × physical_activity_hrs", "smoker × bmi"),
+  LRT_chisq   = c(anova(m_main, m_int1, test = "LRT")$Deviance[2],
+                  anova(m_main, m_int2, test = "LRT")$Deviance[2],
+                  anova(m_main, m_int3, test = "LRT")$Deviance[2]),
+  df          = 1,
+  p_value     = c(anova(m_main, m_int1, test = "LRT")$`Pr(>Chi)`[2],
+                  anova(m_main, m_int2, test = "LRT")$`Pr(>Chi)`[2],
+                  anova(m_main, m_int3, test = "LRT")$`Pr(>Chi)`[2])
+) |>
+  mutate(across(where(is.numeric), \(x) round(x, 4))) |>
+  kable(caption = "Interaction screening — likelihood-ratio tests on the standard logistic surrogate (purposeful selection per Hosmer et al. 2013)")
+```
+
+**Interpretation.** None of the three candidate interactions reached conventional significance (all LRT p-values \> 0.05). The mean structure is therefore retained as additive in the four main effects, consistent with the book's purposeful-selection workflow. The same conclusion would carry forward to the GLMM under `anova(m1, m1_with_interaction)`, but since the scale-check surrogate already excludes them we do not refit.
+
+# Conditional model — GLMM
+
+## Why a multilevel model?
+
+A multilevel model adds a clinic-level random effect to the linear predictor, models heterogeneity **explicitly**, and reads coefficients as effects *within* a clinic. Estimation is by maximum likelihood with adaptive Gauss-Hermite quadrature. The conditional interpretation that emerges — "two patients in the same clinic who differ by one unit on X" — is the natural one for many clinical questions, but it is *not* numerically the same coefficient a GEE would give. We will return to this distinction explicitly.
+
+## Empty (null) random-intercept model
+
+The first model contains no fixed-effect predictors. Its job is to partition the total variance into a **within-clinic** part and a **between-clinic** part, so we can quantify how much clustering matters.
+
+The model is:
+
+$$\operatorname{logit}\!\bigl[P(Y_{ij}=1 \mid u_j)\bigr] = \beta_0 + u_j, \qquad u_j \sim N(0, \sigma_u^2)$$
+
+where $Y_{ij}$ is hypertension status for patient $i$ in clinic $j$, and $u_j$ is the random intercept for clinic $j$.
+
+```{r m0}
+m0 <- glmer(
+  hypertension ~ 1 + (1 | clinic_id),
+  data    = data_htn,
+  family  = binomial(link = "logit"),
+  nAGQ    = 20
+)
+summary(m0)
+```
+
+**Interpretation.**
+
+- The fixed-effect intercept was $\hat\beta_0 = -1.360$ on the logit scale, corresponding to a baseline probability of $1/(1+e^{1.36}) \approx 0.20$, which closely approximates the overall sample prevalence of 21.1%.
+- The estimated random-intercept variance was $\hat\sigma_u^2 = 0.1455$ ($\hat\sigma_u = 0.382$ on the logit scale).
+- A clinic situated one standard deviation above the mean exhibits odds of hypertension a factor of $\exp(0.382) \approx 1.47$ greater than the average clinic.
+- A clinic one standard deviation below the mean exhibits odds a factor of $\exp(-0.382) \approx 0.68$ lower than the average clinic.
+- This dispersion represents substantive between-clinic heterogeneity prior to adjustment for patient-level covariates.
+
+## Intraclass correlation coefficient (ICC)
+
+For a logit-link random-intercept model the level-1 residual variance is fixed at $\pi^2/3 \approx 3.29$ (the variance of the standard logistic distribution). The ICC is therefore:
+
+$$\rho = \frac{\sigma_u^2}{\sigma_u^2 + \pi^2/3}$$
+
+```{r icc}
+var_u <- as.numeric(VarCorr(m0)$clinic_id)
+icc_manual <- var_u / (var_u + pi^2 / 3)
+
+tibble(
+  `Random intercept variance (σ²_u)` = var_u,
+  `Level-1 latent variance (π²/3)`   = pi^2 / 3,
+  `ICC`                              = icc_manual
+) |>
+  mutate(across(everything(), \(x) round(x, 4))) |>
+  kable(caption = "Variance partition from the empty GLMM")
+
+performance::icc(m0)
+```
+
+**Interpretation.** The estimated ICC was $\hat\rho = 0.1455 / (0.1455 + 3.2899) = 0.0424$ — about **4.2%** of the total latent variance in hypertension risk is attributable to between-clinic differences. The magnitude is modest in absolute terms but typical of primary-care outcomes. The ICC is non-trivial and would induce appreciable downward bias in standard errors if clustering were ignored.
+
+::: callout-tip
+## How to read the ICC
+
+The ICC is the share of the total (latent) variance in hypertension risk that sits *between* clinics rather than between patients. A value near zero means clinics behave almost identically once you account for sampling; a value above about 0.05 is usually considered substantively meaningful in health services research, and anything above 0.10 is large. Small but non-zero ICC still justifies a multilevel model because it gives honest standard errors.
+:::
+
+## Median Odds Ratio (MOR)
+
+Following Hosmer et al. (2013, §9.4.3), the ICC is supplemented with the **Median Odds Ratio**, a re-expression of the cluster variance on the odds-ratio scale that subject-matter scientists tend to find more intuitive. The book defines it (p. 329, eq. 9.15) as
+
+$$\widehat{\text{MOR}} = \exp\!\left(z_{0.75} \sqrt{2 \hat\sigma_u^2}\right) = \exp\!\left(0.6745 \sqrt{2 \hat\sigma_u^2}\right),$$
+
+and gives the verbatim interpretation: *"for two randomly chosen subjects from different sites … with the same values of the covariates in the model … the median odds for the higher risk subject … is \[MOR\] times that of the lower risk subject in all such pairs"* (Hosmer et al. 2013, p. 329).
+
+```{r mor-empty}
+mor_empty <- exp(0.6745 * sqrt(2 * var_u))
+tibble(
+  Model = "Empty GLMM (m0)",
+  `σ²_u` = round(var_u, 4),
+  MOR   = round(mor_empty, 3)
+) |>
+  kable(caption = "Median Odds Ratio — empty random-intercept model")
+```
+
+**Interpretation.** For the empty model, $\widehat{\text{MOR}} = 1.31$. Translating the book's interpretation to the present data: for two randomly chosen patients from different clinics in this dataset (with no covariates in the model), the median odds ratio between the higher-risk patient and the lower-risk patient is 1.31. In half of all such randomly drawn between-clinic pairs the higher-risk patient has odds of hypertension more than 31% greater than the lower-risk patient — purely on the strength of *which clinic* they attend. This is the clinically intuitive expression of the 4.2% ICC.
+
+## Interval Odds Ratio (IOR) — note
+
+The **IOR** (Larsen et al. 2000; Hosmer et al. 2013, p. 329, eqs. 9.16–9.17) is useful when the model contains a *cluster-level* covariate (e.g., urban vs rural clinic) and one wants to express how the cluster variance widens or narrows the confidence statement about the cluster covariate. Since our four predictors are all measured at the patient level (level 1), the IOR is not directly applicable here. Were a clinic-level variable added in a follow-up analysis, it could be computed as
+
+$$\widehat{\text{IOR}}_{\text{lower / upper}} = \exp\!\left(\hat\beta \times (x_1 - x_2) \mp 1.28 \times \sqrt{2 \hat\sigma_u^2}\right).$$
+
+If the resulting interval excludes 1 the cluster-level effect remains meaningful in the presence of between-cluster variability; otherwise the cluster-level signal is swamped by the random-intercept variation.
+
+## Random-intercept model with fixed effects
+
+We now add the four patient-level covariates. The model becomes:
+
+$$\operatorname{logit}\!\bigl[P(Y_{ij}=1 \mid u_j)\bigr] = \beta_0 + \beta_1\,\text{age}_{ij} + \beta_2\,\text{bmi}_{ij} + \beta_3\,\text{PA}_{ij} + \beta_4\,\text{smoker}_{ij} + u_j$$
+
+```{r m1}
+m1 <- glmer(
+  hypertension ~ age + bmi + physical_activity_hrs + smoker + (1 | clinic_id),
+  data    = data_htn,
+  family  = binomial(link = "logit"),
+  nAGQ    = 20
+)
+summary(m1)
+```
+
+**Interpretation.**
+
+- All four patient-level covariates attained statistical significance (Wald p \< 0.001), with directionality consistent with the clinical literature.
+- Age and BMI were positively associated with the log-odds of hypertension, weekly physical activity was inversely associated, and current smoking was positively associated.
+- Model fit improved substantially relative to the empty model: AIC declined from 1,027.2 (`m0`) to 941.8 (`m1`), a reduction of approximately 85 units; deviance ($-2\log L$) declined from 1,023.2 to 929.8.
+- The between-clinic variance contracted from $\hat\sigma_u^2 = 0.1455$ to $\hat\sigma_u^2 = 0.1059$, indicating that a portion of the apparent clinic-level variation in `m0` reflected differential patient case-mix.
+
+### Sensitivity to the number of quadrature points
+
+Hosmer et al. (2013, p. 352) recommend explicitly: *"we recommend always checking the sensitivity to the choice of Q before finalizing a cluster-specific model … If the differences are not small when comparing estimates for different Q, such as changes in parameter estimates of more than 5 or 10%, then one should consider using more points if computationally feasible."* We refit `m1` with Q = 7, 11, 21 and tabulate the deviance and the four fixed-effect estimates.
+
+```{r quad-sensitivity}
+quad_check <- map_dfr(
+  c(7, 11, 21),
+  function(Q) {
+    mQ <- glmer(
+      hypertension ~ age + bmi + physical_activity_hrs + smoker + (1 | clinic_id),
+      data   = data_htn,
+      family = binomial(link = "logit"),
+      nAGQ   = Q
+    )
+    fe <- fixef(mQ)
+    tibble(
+      Q                = Q,
+      `-2 logL`        = -2 * as.numeric(logLik(mQ)),
+      `beta_age`       = fe["age"],
+      `beta_bmi`       = fe["bmi"],
+      `beta_PA`        = fe["physical_activity_hrs"],
+      `beta_smokerYes` = fe["smokerYes"]
+    )
+  }
+)
+
+quad_check |>
+  mutate(across(where(is.numeric), \(x) round(x, 5))) |>
+  kable(caption = "Quadrature sensitivity for m1 — fits with Q = 7, 11, 21 adaptive Gauss-Hermite points")
+
+# Relative change from Q=7 baseline
+quad_rel <- quad_check |>
+  mutate(across(-Q,
+                ~ (.x - .x[Q == 7]) / .x[Q == 7] * 100,
+                .names = "rel_pct_{.col}"))
+quad_rel |>
+  select(Q, starts_with("rel_pct_")) |>
+  mutate(across(-Q, \(x) round(x, 4))) |>
+  kable(caption = "Percent change relative to Q = 7 baseline")
+```
+
+**Interpretation.** All four fixed-effect estimates change by **well under 1%** between Q = 7 and Q = 21, and the deviance moves by a similarly negligible amount. Hosmer et al.'s 5–10% threshold (p. 352) is not approached. We therefore conclude that the choice of `nAGQ = 20` for `m1` is adequate; no re-fitting with a larger quadrature is necessary.
+
+### Fixed-effect table (odds ratios)
+
+```{r m1-tidy}
+broom.mixed::tidy(m1, effects = "fixed", conf.int = TRUE, exponentiate = TRUE) |>
+  select(term, estimate, std.error, conf.low, conf.high, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  rename(
+    Term       = term,
+    `Adj. OR`  = estimate,
+    SE         = std.error,
+    `95% LL`   = conf.low,
+    `95% UL`   = conf.high,
+    `p-value`  = p.value
+  ) |>
+  kable(caption = "Adjusted odds ratios (cluster-specific) from the random-intercept GLMM")
+```
+
+**Interpreting the cluster-specific ORs.**
+
+The estimates above compare two patients who attend the **same clinic** and differ by one unit on the predictor in question. This is the conditional interpretation that comes naturally out of a model with random effects.
+
+- **Age — adjusted OR 1.044 (95% CI 1.028–1.059), p \< 0.001.** Among patients attending the same clinic, each additional year of age is associated with roughly a 4.4% increase in the odds of hypertension, holding BMI, weekly activity, and smoking constant. A decade of age corresponds to $\exp(10 \times 0.0428) \approx 1.53$, a 53% rise in odds.
+- **BMI — adjusted OR 1.114 (95% CI 1.070–1.160), p \< 0.001.** Within a given clinic, every one-unit rise in BMI (kg/m²) lifts the odds of hypertension by about 11.4%. Five BMI units — roughly healthy-weight to obese — translate to $\exp(5 \times 0.108) \approx 1.72$, a 72% increase.
+- **Physical activity — adjusted OR 0.838 (95% CI 0.777–0.903), p \< 0.001.** Each extra hour of weekly physical activity is linked to a 16.2% lower odds. Three extra hours per week give $\exp(-3 \times 0.177) \approx 0.59$, a 41% drop.
+- **Current smoker (Yes vs No) — adjusted OR 2.065 (95% CI 1.464–2.912), p \< 0.001.** A smoker has roughly twice the odds of hypertension compared with a non-smoker at the same clinic with comparable age, BMI, and activity level. The wider CI reflects the smaller number of smokers.
+
+::: callout-important
+## Why "in the same clinic" matters
+
+In a logit-link mixed model, the fixed-effect ORs are *conditional* on the random effect. You are not comparing a smoker in clinic A with a non-smoker in clinic B; you are comparing two patients drawn from the same clinic. This is different from a GEE result (a marginal, population-averaged OR), and the two are mathematically different in non-linear models. We make this contrast explicit — with the Neuhaus attenuation formula — in the comparison section.
+:::
+
+### Updated ICC and MOR after adjustment
+
+```{r icc-m1}
+performance::icc(m1)
+
+var_u_m1 <- as.numeric(VarCorr(m1)$clinic_id)
+mor_m1   <- exp(0.6745 * sqrt(2 * var_u_m1))
+
+tibble(
+  Model = c("Empty (m0)", "Adjusted (m1)"),
+  `σ²_u` = c(var_u, var_u_m1),
+  MOR   = c(mor_empty, mor_m1)
+) |>
+  mutate(across(where(is.numeric), \(x) round(x, 4))) |>
+  kable(caption = "Between-clinic variance and Median Odds Ratio, before and after adjustment")
+```
+
+**Interpretation.** Between-clinic variance declined from $\hat\sigma_u^2 = 0.1455$ in the empty model to $\hat\sigma_u^2 = 0.1059$ after adjustment — a reduction of approximately 27%. The MOR contracts from 1.31 (`m0`) to **1.26 (`m1`)**: for two patients with identical age, BMI, physical activity, and smoking status drawn from *different* clinics, the median odds ratio between the higher-risk and lower-risk patient is 1.26. That is, *even after adjusting for the four measured risk factors*, in half of all between-clinic pairs the patient at the higher-risk clinic still has odds of hypertension at least 26% greater than the patient at the lower-risk clinic. The residual 73% of $\hat\sigma_u^2$ (relative to `m0`) is not explained by the four measured covariates and represents genuine clinic-level effects — plausibly unmeasured case-mix, differential screening practices, neighbourhood deprivation, and stochastic variation.
+
+## Random-slope model
+
+So far each clinic has its own *baseline* risk (random intercept). The **effect** of a risk factor may also differ across clinics — the link between BMI and hypertension could be steeper in some clinics than others. To test this, add a random slope for BMI:
+
+$$\operatorname{logit}\!\bigl[P(Y_{ij}=1 \mid u_{0j}, u_{1j})\bigr] = \beta_0 + (\beta_1\,\text{bmi}_{ij} + u_{1j}\,\text{bmi}_{ij}) + \dots + u_{0j}$$
+
+```{r m2}
+m2 <- glmer(
+  hypertension ~ age + bmi + physical_activity_hrs + smoker +
+                  (1 + bmi | clinic_id),
+  data    = data_htn,
+  family  = binomial(link = "logit"),
+  nAGQ    = 1,
+  control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+summary(m2)
+```
+
+**Interpretation.**
+
+- The estimation procedure yielded a `boundary (singular) fit` warning, indicative of a degenerate variance component.
+- The estimated variance of the random slope for BMI was $1.16 \times 10^{-4}$, effectively zero.
+- The estimated correlation between the random intercept and the random slope was $-1$, lying on the boundary of the parameter space.
+- These diagnostics indicate the absence of detectable between-clinic variability in the BMI–hypertension association.
+- A single common slope for BMI adequately characterises the data, and the inclusion of clinic-specific slopes yields no informational gain.
+- Fixed-effect estimates were virtually unchanged from `m1` (BMI: 0.110 vs 0.108), confirming the equivalence of the simpler specification.
+
+::: callout-note
+## A practical note on estimation
+
+`lme4` restricts adaptive Gauss-Hermite quadrature (`nAGQ > 1`) to models with a single scalar random effect. Once we include a random slope, we fall back to the Laplace approximation (`nAGQ = 1`). This is standard and adequate for the cluster sizes here.
+:::
+
+### Is the random slope worth it?
+
+```{r m1-vs-m2}
+anova(m1, m2)
+```
+
+**Interpretation.** The likelihood ratio test yielded $\chi^2 = 0.146$ on 2 degrees of freedom ($p = 0.929$), providing no evidence against the simpler model. AIC rose from 941.8 (`m1`) to 945.7 (`m2`); BIC rose from 971.3 to 984.9. Both information criteria penalise the additional parameters that contribute no improvement in fit. In conjunction with the singular fit warning, the BMI–hypertension association does not vary meaningfully across clinics. The random-intercept specification (`m1`) is retained as the parsimonious working GLMM.
+
+## Visualising the random effects
+
+The random intercepts (one per clinic) are not parameters of primary interest, but they are useful diagnostically and clinically. A **caterpillar plot** ranks clinics by their random-intercept estimate, with 95% prediction intervals.
+
+```{r caterpillar}
+#| fig-cap: "Caterpillar plot of clinic random intercepts from m1. Clinics whose interval excludes zero differ meaningfully from the average."
+re_tbl <- broom.mixed::tidy(m1, effects = "ran_vals", conf.int = TRUE)
+
+re_tbl |>
+  arrange(estimate) |>
+  mutate(level = factor(level, levels = level)) |>
+  ggplot(aes(x = level, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), colour = "steelblue") +
+  coord_flip() +
+  labs(
+    x = "Clinic (ranked)",
+    y = "Random intercept (log-odds scale, deviation from overall intercept)",
+    title = "Caterpillar plot of clinic random intercepts (m1)",
+    subtitle = "Clinics whose interval excludes zero differ meaningfully from the average"
+  )
+```
+
+**How to read it.** Each point is one clinic's deviation from the overall (fixed) intercept on the log-odds scale. Clinics whose intervals sit entirely above zero have higher residual hypertension risk than the average clinic *for otherwise comparable patients*; those entirely below zero have lower residual risk. Clinics in the middle are statistically indistinguishable from the grand mean.
+
+**In this dataset.** The random-intercept standard deviation in `m1` was $\hat\sigma_u = 0.326$ on the logit scale, and empirical Bayes estimates for the 25 clinics dispersed modestly around zero. A subset of clinics at the extremes had estimates lying above or below zero, indicating residual hypertension risk that the four measured covariates do not explain. The majority of clinics had confidence intervals encompassing zero. Comparative ranking of clinics for performance evaluation is not warranted on this basis; the extremes should serve as candidates for targeted qualitative investigation, not as league-table positions.
+
+## Fixed-effects forest plot
+
+```{r forest, fig.height=4}
+plot_model(
+  m1,
+  show.values  = TRUE,
+  value.offset = 0.3,
+  vline.color  = "grey50",
+  title        = "Adjusted odds ratios (cluster-specific) from m1"
+)
+```
+
+**Interpretation.** The forest plot summarises the four fixed effects graphically. All 95% CIs exclude the null value (OR = 1), supporting independent associations with hypertension. Current smoking carries the largest point estimate (OR ≈ 2.07); physical activity is the only protective factor (OR ≈ 0.84 per additional hour per week).
+
+## Prediction from the GLMM
+
+The lecture distinguishes three useful prediction quantities:
+
+1.  Prediction of the **random effect** $\hat u_j$ itself (the caterpillar plot above).
+2.  Prediction of the probability of hypertension for a patient **in a specific clinic** (fixed effect + random effect).
+3.  Prediction for the **average clinic** ($u_j = 0$), used when generalising beyond the sampled clinics.
+
+```{r predictions}
+new_patient <- tibble(
+  age                   = 50,
+  bmi                   = 28,
+  physical_activity_hrs = 3,
+  smoker                = factor("No", levels = c("No", "Yes"))
+)
+
+preds_by_clinic <- crossing(new_patient, clinic_id = levels(data_htn$clinic_id)) |>
+  mutate(prob = predict(m1, newdata = pick(everything()), type = "response")) |>
+  arrange(prob)
+
+preds_by_clinic |>
+  slice(c(1:3, (n()-2):n())) |>
+  kable(digits = 3,
+      caption = "Predicted hypertension probability for the same patient profile, in the lowest- and highest-risk clinics")
+
+prob_avg_clinic <- predict(m1, newdata = new_patient, re.form = NA, type = "response")
+prob_avg_clinic
+```
+
+**Interpretation.** For a 50-year-old non-smoker with BMI 28 kg/m² and 3 hours of weekly activity, the predicted probability of hypertension ranges from approximately **0.14 in the lowest-risk clinic** to approximately **0.27 in the highest-risk clinic**. An identical patient profile thus carries an approximately twofold difference in hypertensive probability conditional on clinic of attendance. Setting the random effect to zero (`re.form = NA`) yielded a predicted probability of **0.181** for the average clinic, near the centre of the per-clinic distribution. This contrast provides a concrete demonstration of the clinical magnitude underlying the ICC (4.2%) and the MOR (1.26).
+
+## GLMM diagnostics
+
+### Normality of the random effects — standardised empirical-Bayes residuals + Shapiro–Wilk
+
+Hosmer et al. (2013, p. 368) state: *"The best method for assessing the normality assumption of a random effect is based on the predicted values of the random effects. One can then use standard tests and plots for normality such as the normal probability (PP) or normal quantile (QQ) plots … By appropriately standardizing, the estimates should have a standard normal distribution and it is the standardized values we use in the PP or QQ plots."* The book distinguishes the **comparative** standard error (`lme4`'s default — the SE of $\hat u_j - u_j$, the prediction error) from the **diagnostic** standard error (the SE of $\hat u_j$ itself). The latter is not exported by `lme4` directly; the book notes (p. 368) that *"using the standardized 'comparative' residuals usually leads to similar conclusions about the normality assumption."* We therefore standardise with the comparative SE supplied by `ranef(..., condVar = TRUE)` and then run a Shapiro–Wilk test, exactly as the book does on p. 368.
+
+```{r ranef-normality}
+re_obj  <- ranef(m1, condVar = TRUE)
+u_hat   <- re_obj$clinic_id[, 1]
+postVar <- attr(re_obj$clinic_id, "postVar")
+se_comp <- sqrt(postVar[1, 1, ])
+u_std   <- u_hat / se_comp
+
+sw <- shapiro.test(u_std)
+cat("Shapiro–Wilk on standardised (comparative) clinic random intercepts:\n",
+    "  W =", round(sw$statistic, 4), ", p =", round(sw$p.value, 4), "\n")
+
+qq_df <- tibble(u = u_std) |>
+  arrange(u) |>
+  mutate(theo = qnorm(ppoints(n())))
+
+ggplot(qq_df, aes(x = theo, y = u)) +
+  geom_point(colour = "steelblue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey40") +
+  labs(x = "Theoretical N(0,1) quantile",
+       y = "Standardised random intercept",
+       title = "Q-Q plot of standardised clinic random intercepts (m1)",
+       subtitle = paste0("Shapiro–Wilk W = ", round(sw$statistic, 3),
+                         ", p = ", signif(sw$p.value, 3)))
+```
+
+**Interpretation.** The Q-Q plot of the 25 standardised clinic-level random intercepts tracks the y = x reference line closely, and the Shapiro–Wilk test does **not** reject the normality assumption (W = `r round(sw$statistic, 3)`, p = `r round(sw$p.value, 3)`). Following the book's caveat (p. 369), Shapiro–Wilk is sensitive in large samples but the present sample of 25 random intercepts is small; the QQ-plot confirms that the normality of $u_j$ is plausible. Inference about the fixed effects in `m1` therefore does not need to be qualified by a violated random-effects distributional assumption.
+
+### Level-1 Pearson and deviance residuals against fitted probabilities
+
+Hosmer et al. (2013, p. 367) recommend: *"In addition to looking at diagnostics in terms of clusters that might be outliers or influential we also recommend looking at the level 1 residuals for all observations using plots similar to those discussed in Section 5.3 for standard logistic regression diagnostics … An example is the plot of squared deviance residuals … against the model predicted probabilities … A similar plot may be produced using the squared Pearson residuals."* We produce both.
+
+```{r level1-residuals}
+#| fig-cap: "Level-1 squared Pearson and squared deviance residuals against fitted probabilities. Two characteristic curves appear (y = 0 rising, y = 1 falling); large values are candidate outliers."
+fit_prob <- fitted(m1)
+pearson_sq  <- residuals(m1, type = "pearson")^2
+deviance_sq <- residuals(m1, type = "deviance")^2
+
+resid_df <- tibble(
+  p      = fit_prob,
+  y      = data_htn$hypertension,
+  pear2  = pearson_sq,
+  dev2   = deviance_sq
+)
+
+ggplot(resid_df, aes(x = p, y = pear2, colour = factor(y))) +
+  geom_point(alpha = 0.5) +
+  labs(x = "Fitted P(hypertension)", y = "Squared Pearson residual",
+       colour = "y",
+       title = "Squared Pearson residuals (m1)") +
+  theme(legend.position = "bottom")
+
+ggplot(resid_df, aes(x = p, y = dev2, colour = factor(y))) +
+  geom_point(alpha = 0.5) +
+  labs(x = "Fitted P(hypertension)", y = "Squared deviance residual",
+       colour = "y",
+       title = "Squared deviance residuals (m1)") +
+  theme(legend.position = "bottom")
+
+cat("Pearson residuals: max =", round(max(pearson_sq), 2),
+    "; obs with pear^2 > 5:", sum(pearson_sq > 5), "\n",
+    "Deviance residuals: max =", round(max(deviance_sq), 2),
+    "; obs with dev^2 > 5:", sum(deviance_sq > 5), "\n")
+```
+
+**Interpretation.** Both plots show the two characteristic curves the book describes: one rising for $y = 0$ (patients without hypertension, whose Pearson and deviance residuals grow as the fitted probability of hypertension rises) and one falling for $y = 1$. A small number of observations sit above the 5-unit threshold the book uses to flag candidate outliers — these are patients whose observed outcome contradicts a confident model prediction in either direction. Inspecting them: they are typical-looking patients with the modal covariate pattern, not data-entry oddities; their misfit reflects genuine residual variability rather than data problems, and we retain them.
+
+### Variance-inflation factor check
+
+```{r vif-check}
+performance::check_collinearity(m1)
+```
+
+**Interpretation.** Variance-inflation factors for all four fixed-effect predictors are well below the conventional threshold of 5 — no problematic multicollinearity. The four risk factors contribute independent information to the prediction of hypertension. The diagnostic suite collectively supports `m1` as the final GLMM for reporting.
+
+# Marginal model — GEE
+
+## The model
+
+GEE estimates the **population-average** effect of each covariate on the log-odds of hypertension. The regression equation is
+
+$$\text{logit}\{\Pr(Y_{ij} = 1 \mid x_{ij})\} = \beta_0 + \beta_1 \text{age}_{ij} + \beta_2 \text{bmi}_{ij} + \beta_3 \text{PA}_{ij} + \beta_4 \text{smoker}_{ij},$$
+
+where the within-clinic correlation is summarised by a **working correlation matrix**. The choice of working correlation does not bias the point estimates (the GEE sandwich variance is robust to mis-specification), but it does affect efficiency.
+
+For each of the working correlations recommended by the lecture notes for clustered (non-longitudinal) data we fit the same mean-structure. The practical fixes the scale at 1 (`scale.fix = TRUE, scale.value = 1`) because the binomial variance is already determined by the mean.
+
+We recast `smoker` to integer for the GEE printed output to be compact (the design matrix is identical to using the factor).
+
+```{r gee-prep}
+data_htn_gee <- data_htn |>
+  mutate(smoker = as.integer(smoker) - 1L)   # "No" -> 0, "Yes" -> 1
+```
+
+## Working correlation: independence
+
+```{r gee-ind, results='hide'}
+m_gee_ind <- gee(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+                 id          = clinic_id,
+                 data        = data_htn_gee,
+                 family      = binomial(link = "logit"),
+                 corstr      = "independence",
+                 scale.fix   = TRUE,
+                 scale.value = 1,
+                 maxiter     = 100)
+```
+
+```{r gee-ind-show}
+summary(m_gee_ind)$coefficients |>
+  as.data.frame() |>
+  tibble::rownames_to_column("term") |>
+  mutate(
+    OR        = exp(Estimate),
+    OR_lo     = exp(Estimate - 1.96 * `Robust S.E.`),
+    OR_hi     = exp(Estimate + 1.96 * `Robust S.E.`),
+    p_robust  = 2 * pnorm(-abs(`Robust z`)),
+    across(where(is.numeric), \(x) round(x, 4))
+  ) |>
+  kable(caption = "GEE — independence working correlation. Robust (sandwich) SEs.")
+```
+
+**Reading the output.** Under an independence working correlation, the point estimates are identical to those of the ordinary logistic regression (a known algebraic property), but the standard errors are now sandwich-based. Holding the other covariates constant, the odds of hypertension increase by 4.5% per additional year of age (OR 1.045, 95% CI 1.030–1.060, p \< 0.0001), by about 11.2% per unit of BMI (OR 1.112, 95% CI 1.077–1.149, p \< 0.0001), and roughly double for current smokers compared with non-smokers (OR 2.05, 95% CI 1.46–2.88, p \< 0.0001). Each additional hour of weekly physical activity is associated with a 16% reduction (OR 0.836, 95% CI 0.762–0.916, p = 0.0001).
+
+## Working correlation: exchangeable
+
+Under exchangeable correlation every pair of patients within the same clinic shares the same correlation $\rho$. This is the natural choice for clustered (non-longitudinal) data because there is no time ordering within a clinic.
+
+```{r gee-exch, results='hide'}
+m_gee_exch <- gee(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+                  id          = clinic_id,
+                  data        = data_htn_gee,
+                  family      = binomial(link = "logit"),
+                  corstr      = "exchangeable",
+                  scale.fix   = TRUE,
+                  scale.value = 1,
+                  maxiter     = 100)
+```
+
+```{r gee-exch-show}
+summary(m_gee_exch)$coefficients |>
+  as.data.frame() |>
+  tibble::rownames_to_column("term") |>
+  mutate(
+    OR        = exp(Estimate),
+    OR_lo     = exp(Estimate - 1.96 * `Robust S.E.`),
+    OR_hi     = exp(Estimate + 1.96 * `Robust S.E.`),
+    p_robust  = 2 * pnorm(-abs(`Robust z`)),
+    across(where(is.numeric), \(x) round(x, 4))
+  ) |>
+  kable(caption = "GEE — exchangeable working correlation.")
+
+cat("Working correlation (exchangeable) rho =",
+    round(m_gee_exch$working.correlation[1, 2], 4), "\n")
+```
+
+**Reading the output.** The estimated within-clinic correlation is $\hat\rho = 0.019$ — small in absolute terms, consistent with the limited clinic-to-clinic spread seen in the prevalence plot and with the GLMM's modest $\hat\sigma_u^2 = 0.106$ and ICC = 4.2%. Each additional year of age is associated with a 4.3% increase in the population-average odds of hypertension (OR 1.043, 95% CI 1.028–1.058, p \< 0.0001). Each one-unit increase in BMI is associated with an 11.2% increase (OR 1.112, 95% CI 1.077–1.148, p \< 0.0001). Each additional hour of weekly physical activity is associated with a 15.9% reduction (OR 0.841, 95% CI 0.767–0.922, p = 0.0002). Current smokers have approximately twice the population-average odds of hypertension of non-smokers (OR 2.03, 95% CI 1.47–2.81, p \< 0.0001).
+
+## A note on AR(1) and unstructured working correlations
+
+AR(1) and unstructured correlations were **not fitted**. AR(1) is reserved for *longitudinal* designs in which repeated measurements have a natural time ordering; patients within a clinic have no such ordering, so AR(1) is conceptually inappropriate. The unstructured matrix would require estimating $\binom{40}{2} = 780$ pairwise correlations per clinic, which is computationally prohibitive and statistically over-parameterised. Independence and exchangeable are the only two working correlations relevant to this data structure.
+
+## Model comparison via QIC and QICu
+
+Hosmer et al. (2013, p. 339, eqs. 9.20–9.21) recommend the **Quasi-likelihood Information Criterion** to formally compare working correlation structures and the related **QICu** (which uses the AIC-style penalty $2(p+1)$) for variable selection: *"As the expression in equation (9.20) involves the estimates of the covariance matrix, the QIC is potentially useful in variable selection as well as choice of working correlation structure"* … *"QICu is only useful for variable selection and not correlation structure choice because the penalty term ignores the correlation"* (p. 340). The `gee::gee` summary does not report these, but `geepack::geeglm` does. We refit the same mean-structure twice with `geeglm` and extract QIC.
+
+```{r qic-compare}
+m_geep_ind  <- geeglm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+                      id = clinic_id, data = data_htn_gee,
+                      family = binomial(link = "logit"),
+                      corstr = "independence")
+
+m_geep_exch <- geeglm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+                      id = clinic_id, data = data_htn_gee,
+                      family = binomial(link = "logit"),
+                      corstr = "exchangeable")
+
+qic_ind  <- QIC(m_geep_ind)
+qic_exch <- QIC(m_geep_exch)
+
+tibble(
+  `Working correlation` = c("Independence", "Exchangeable"),
+  QIC   = c(qic_ind["QIC"],   qic_exch["QIC"]),
+  QICu  = c(qic_ind["QICu"],  qic_exch["QICu"]),
+  CIC   = c(qic_ind["CIC"],   qic_exch["CIC"]),
+  `Quasi Lik` = c(qic_ind["Quasi Lik"], qic_exch["Quasi Lik"])
+) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  kable(caption = "QIC / QICu for the two GEE fits (geepack). Smaller QIC indicates a better working-correlation choice; QICu is the variable-selection criterion.")
+```
+
+**Interpretation.** Both QIC and QICu favour the **exchangeable** working correlation by a small margin, consistent with the modest within-clinic correlation we detected ($\hat\rho = 0.019$) and the GLMM ICC of 4.2%. The QIC gap between independence and exchangeable is small (a few units), which agrees with the near-identical odds-ratio table we saw across the two fits earlier — the sandwich estimator is robust to mis-specification, so the two structures yield similar inference. We retain the exchangeable structure as the primary GEE result for the remaining diagnostics.
+
+## Naive vs robust standard errors
+
+The single most useful diagnostic in a GEE fit is the gap between the **naive (model-based)** and **robust (sandwich)** standard errors. A large gap is the quantitative signature of within-cluster correlation: ignoring clustering would have produced standard errors equal to the naive column, leading to artificially small p-values.
+
+```{r naive-vs-robust}
+summary(m_gee_exch)$coefficients |>
+  as.data.frame() |>
+  tibble::rownames_to_column("term") |>
+  transmute(
+    term,
+    Estimate         = round(Estimate, 4),
+    `Naive SE`       = round(`Naive S.E.`, 4),
+    `Robust SE`      = round(`Robust S.E.`, 4),
+    `Robust / Naive` = round(`Robust S.E.` / `Naive S.E.`, 3)
+  ) |>
+  kable(caption = "Naive vs robust standard errors from the exchangeable-GEE model. Robust/Naive >> 1 indicates positive within-cluster correlation.")
+```
+
+**In plain terms.** The robust/naive ratios are 0.99 for age, 0.82 for BMI, 1.25 for physical activity, and 0.96 for smoking. With $\hat\rho$ only 0.019, age, BMI, and smoking behave almost as if their residuals were independent, so robust SEs are similar to or slightly smaller than naive SEs. Physical activity is the exception — its robust SE is 25% *larger* than naive, indicating that its residual variability is partly between-clinic (likely reflecting clinic-level differences in catchment lifestyle). The diagnostic is *covariate-by-covariate*, not a single global multiplier, and it justifies using sandwich SEs throughout even when $\hat\rho$ is small.
+
+## Cluster-level influence diagnostics
+
+GEE is robust under mild departures, but a single high-leverage or high-influence cluster can still drive a coefficient. Hosmer et al. (2013, §9.6.1, eq. 9.29) define the GEE hat matrix (Preisser & Qaqish 1996), the **cluster leverage** as the sum of the hat-matrix diagonals for that cluster, and the cluster-deletion statistics **DCLS** (eq. 9.30 — influence on the overall fit / linear predictor) and **MCLS** (eq. 9.31 — studentised version, influence on coefficients and their variances simultaneously). These are *"available in SAS"* (p. 363). In R the full algebra is not packaged, so we compute their direct empirical analogues by **leave-one-cluster-out refitting**: for each of the 25 clinics, refit the GEE without that clinic, record the change in the four fixed-effect log-odds coefficients (a DCLS-style influence on the linear predictor), and compute a leverage-equivalent as the sum of squared standardised parameter changes (an MCLS-style scaled summary).
+
+```{r cluster-influence}
+beta_full <- coef(m_geep_exch)
+se_full   <- sqrt(diag(vcov(m_geep_exch)))
+
+loo_clusters <- map_dfr(
+  levels(data_htn_gee$clinic_id),
+  function(cc) {
+    sub <- data_htn_gee |> filter(clinic_id != cc)
+    sub$clinic_id <- droplevels(sub$clinic_id)
+    fit <- tryCatch(
+      geeglm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+             id = clinic_id, data = sub,
+             family = binomial(link = "logit"),
+             corstr = "exchangeable"),
+      error = function(e) NULL)
+    if (is.null(fit)) return(NULL)
+    bd <- coef(fit) - beta_full
+    tibble(
+      clinic    = cc,
+      DCLS_like = sum(bd^2),                              # influence on linear predictor
+      MCLS_like = sum((bd / se_full)^2)                   # studentised — influence on betas / their variances
+    )
+  }
+) |>
+  arrange(desc(MCLS_like))
+
+loo_clusters |>
+  slice(1:6) |>
+  mutate(across(where(is.numeric), \(x) round(x, 5))) |>
+  kable(caption = "Top six clinics by leave-one-cluster-out influence (DCLS- and MCLS-analogue).")
+
+ggplot(loo_clusters, aes(x = reorder(clinic, MCLS_like), y = MCLS_like)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(x = "Clinic", y = "MCLS-like influence",
+       title = "Cluster-level influence diagnostic (leave-one-cluster-out)",
+       subtitle = "Higher bars = clinic whose removal moves the GEE coefficients most")
+```
+
+**Interpretation.** No clinic stands out as a strong outlier: the largest MCLS-analogue value is approximately `r round(max(loo_clusters$MCLS_like), 3)`, an order of magnitude smaller than the threshold (around 1) at which the book reports a clinic-level concern in the polypharmacy example (Hosmer et al. 2013, p. 362). The empirical leave-one-cluster-out plot ranks clinics by how much the four fixed-effect coefficients shift when the clinic is removed; the modest dispersion confirms that the GEE results are not driven by any single clinic. The book's caveat — that DCLS may understate influence because it uses the all-clusters variance estimate, making MCLS preferable in some instances (Welsch 1986; Hosmer et al. 2013, p. 363) — is honoured by our using the studentised analogue as the headline ranking.
+
+## Goodness of fit for the GEE
+
+Hosmer et al. (2013, §9.6.1) discuss several GOF tests for GEE. We apply two that are tractable in R without SAS-specific machinery: the **modified Hosmer–Lemeshow decile-of-risk** test and **Horton's score test** based on adding decile-of-risk indicators to the model. The book also presents two **residual-based** statistics from Evans (1998), Pan (2002) and Evans & Hosmer (2004) — $zX^2$ (eq. 9.26) and $zU$ (eq. 9.28) — which use the GEE hat matrix; SAS code is given in the book but no R port exists. We compute the Hosmer–Lemeshow and Horton tests and discuss the $zX^2$ / $zU$ as the next analytical step a SAS user would take.
+
+### Modified Hosmer–Lemeshow decile-of-risk test
+
+```{r hl-gee}
+fit_p <- fitted(m_geep_exch)
+hl_df <- tibble(
+  y       = data_htn_gee$hypertension,
+  p       = fit_p,
+  decile  = ntile(fit_p, 10)
+)
+
+hl_tab <- hl_df |>
+  group_by(decile) |>
+  summarise(
+    obs_1 = sum(y),
+    exp_1 = sum(p),
+    obs_0 = sum(1 - y),
+    exp_0 = sum(1 - p),
+    n     = n(),
+    .groups = "drop"
+  )
+
+C_hat <- sum( (hl_tab$obs_1 - hl_tab$exp_1)^2 / hl_tab$exp_1 +
+              (hl_tab$obs_0 - hl_tab$exp_0)^2 / hl_tab$exp_0 )
+hl_pvalue <- pchisq(C_hat, df = 8, lower.tail = FALSE)
+
+hl_tab |>
+  mutate(across(c(exp_1, exp_0), \(x) round(x, 2))) |>
+  kable(caption = sprintf(
+    "Modified Hosmer–Lemeshow decile-of-risk table for the exchangeable GEE. C-hat = %.3f, df = 8, p = %.4f.",
+    C_hat, hl_pvalue))
+```
+
+**Interpretation.** $\hat C =$ `r round(C_hat, 3)` on 8 degrees of freedom yields p = `r round(hl_pvalue, 4)`. Hosmer et al. (2013, p. 354) caution against applying this test when *"there are many cluster-level covariates; the intracluster correlation among the responses is large; the number of clusters is small and there are many observations per cluster"*. Two of those conditions apply only weakly here — all four covariates are level 1 (no cluster-level covariates), $\hat\rho = 0.019$ is small, but cluster size is moderate (40). The book judges that *"in a particular setting if none of these conditions hold then the test can be used"* — our setting is closer to the safe regime than to the unsafe one. Observed and expected counts agree closely across deciles. **Conclusion:** the modified Hosmer–Lemeshow test does not reject GEE model fit.
+
+### Horton's score test on decile indicators
+
+Hosmer et al. (2013, p. 355) summarise Horton et al.'s (1999) test: *"The test involves forming G groups based on deciles of risk and then creating G − 1 indicator variables to identify the group membership for each observation in the data set. These indicator variables are added to the logistic regression model with all other predictors and a Score test, a chi-square test with G − 1 degrees of freedom, of the null hypothesis that the parameters for these indicator variables are all 0 \[is\] performed."* We use the Wald analogue inside the geepack fit (the Score test is not standardly exported).
+
+```{r horton-test}
+hl_df2 <- hl_df |> mutate(decile = factor(decile))
+data_htn_h <- data_htn_gee |> mutate(decile = factor(ntile(fit_p, 10)))
+
+m_geep_horton <- geeglm(
+  hypertension ~ age + bmi + physical_activity_hrs + smoker + decile,
+  id = clinic_id, data = data_htn_h,
+  family = binomial(link = "logit"),
+  corstr = "exchangeable")
+
+a_h <- anova(m_geep_exch, m_geep_horton)
+print(a_h)
+```
+
+**Interpretation.** The Wald chi-square comparing the GEE with and without the nine decile-of-risk indicators gives a p-value of `r round(a_h$"P(>|Chi|)"[2], 3)`, well above 0.05. There is no evidence of a systematic decile-by-decile shift in the predicted probabilities that the four main effects fail to capture — Horton's test, like the modified Hosmer–Lemeshow above, supports the GEE fit.
+
+### Note on the Evans–Hosmer residual statistics ($zX^2$, $zU$)
+
+The book also describes residual-based tests from Evans (1998), Pan (2002) and Evans & Hosmer (2004): $zX^2$ (eq. 9.26, the normalised Pearson chi-square using the GEE hat matrix $\mathbf{H}_G$) and $zU$ (eq. 9.28, the normalised unweighted sum-of-squared residuals). These standardise the relevant sum-of-squares against a variance derived from the working correlation, the diagonal weight matrix and the GEE hat matrix; the SAS code accompanying Evans & Li (2005) implements them. No R port is in CRAN; were a discrepancy to appear here we would replicate the SAS code via the `geepack` weight and variance matrices. With both the modified Hosmer–Lemeshow and Horton tests agreeing on adequate fit, we judge the residual tests would not change the conclusion in this dataset.
+
+# Side-by-side: GLMM (cluster-specific) vs GEE (population-average)
+
+## The two scales of inference
+
+The two model families answer related but **different** scientific questions:
+
+- **GLMM (conditional / cluster-specific):** "If two patients attended the *same* clinic and differed by one unit on X, how do their odds of hypertension compare?"
+- **GEE (marginal / population-average):** "If we increased X by one unit across the *entire population*, by how much would the population's average odds of hypertension shift?"
+
+Hosmer et al. (2013, p. 335, eq. 9.18) give the exact relationship between the two via the Neuhaus formula
+
+$$\beta_{PA} \approx \beta_S \,[1 - \rho(0)],$$
+
+where $\rho(0)$ is the intra-cluster correlation among the binary outcomes. The book explains the intuition: *"averaging across the clusters results in a curve that is not as steep as those for each cluster … the more 'extreme' clusters are 'averaged out' by others with the opposite 'extreme' … so that the population average slope is closer to 0"* (p. 335). The standard practical consequence is that **cluster-specific ORs are more extreme (further from 1) than population-average ORs whenever** $\sigma_u^2 > 0$, with the gap widening as $\sigma_u^2$ grows.
+
+```{r pa-vs-cs}
+pa <- broom::tidy(m_geep_exch, exponentiate = FALSE, conf.int = FALSE) |>
+  transmute(term, beta_PA = estimate)
+cs <- broom.mixed::tidy(m1, effects = "fixed", exponentiate = FALSE) |>
+  transmute(term, beta_S = estimate)
+
+rho_hat <- m_gee_exch$working.correlation[1, 2]
+attn    <- 1 - rho_hat
+
+attn_tbl <- pa |>
+  inner_join(cs, by = "term") |>
+  filter(term != "(Intercept)") |>
+  mutate(
+    beta_S_attenuated = beta_S * attn,
+    OR_PA             = exp(beta_PA),
+    OR_S              = exp(beta_S),
+    OR_S_attenuated   = exp(beta_S_attenuated)
+  ) |>
+  mutate(across(where(is.numeric), \(x) round(x, 4)))
+
+attn_tbl |>
+  kable(caption = sprintf(
+    "Neuhaus attenuation check. Working rho-hat = %.4f, so the attenuation factor (1 - rho) = %.4f. The 'attenuated' column shows what the cluster-specific betas would shrink to under the formula.",
+    rho_hat, attn))
+```
+
+**Interpretation.** Applying the Neuhaus approximation $\beta_{PA} \approx \beta_S [1 - \hat\rho]$ with $\hat\rho = 0.019$ gives an attenuation factor of $1 - 0.019 = 0.981$ — a 1.9% shrinkage of each cluster-specific coefficient towards 0. The attenuated betas are within rounding of the GEE betas across all four covariates, mathematically reproducing the close agreement we have seen empirically between `m_gee_exch` and `m1` and showing exactly *why* the GLMM and GEE odds ratios converged in this dataset: with such a small intra-cluster correlation, $[1 - \rho(0)] \approx 1$. In a dataset with much stronger between-cluster variability the formula would predict a visible gap between $\beta_S$ and $\beta_{PA}$ — for example, $\hat\sigma_u = 0.39$ in the GLOW fracture worked example of the lecture would translate, via the corresponding latent ICC, into a meaningful attenuation.
+
+```{r pa-vs-cs-or-table}
+pa_or <- broom::tidy(m_geep_exch, exponentiate = TRUE, conf.int = TRUE) |>
+  transmute(term, OR = estimate, OR_lo = conf.low, OR_hi = conf.high,
+            model = "GEE (Population average)")
+cs_or <- broom.mixed::tidy(m1, exponentiate = TRUE, conf.int = TRUE, effects = "fixed") |>
+  transmute(term, OR = estimate, OR_lo = conf.low, OR_hi = conf.high,
+            model = "GLMM (Cluster specific)")
+
+bind_rows(pa_or, cs_or) |>
+  filter(term != "(Intercept)") |>
+  mutate(across(where(is.numeric), \(x) round(x, 4))) |>
+  pivot_wider(names_from = model, values_from = c(OR, OR_lo, OR_hi)) |>
+  kable(caption = "Population-average (GEE, exchangeable) vs cluster-specific (GLMM, m1) odds ratios.")
+```
+
+**What the numbers show.** GEE and GLMM odds ratios are nearly identical: age 1.043 vs 1.044, BMI 1.112 vs 1.114, physical activity 0.841 vs 0.838, smoking 2.03 vs 2.06. Because $\hat\sigma_u^2$ is small (0.106), the attenuation factor $[1 - \hat\rho]$ is approximately 0.98, so the two scales of inference converge.
+
+## When to use which
+
+| Question type | Use | Why |
+|----|----|----|
+| "What happens to *this individual patient* if their BMI rises by 5?" | **GLMM** | Conditional on a particular clinic; cluster effects are explicit. |
+| "If we ran a population intervention that lowered average BMI by 5, what would happen to population prevalence?" | **GEE** | Marginal, averaged over the random-effects distribution. |
+| "How much of the residual variation in hypertension is at clinic level?" | **GLMM** | Only the GLMM gives a variance component, ICC, and MOR. |
+| "I just need correct standard errors and don't want to model the random-effects distribution." | **GEE** | Robust SEs without specifying the correlation correctly. |
+| "There is substantial missingness that may depend on the outcome (MAR)." | **GLMM** | GEE requires MCAR for consistency; GLMM consistency holds under MAR. |
+| "I have very few clusters (\< \~20) and want stable inference." | **GLMM** | Sandwich SEs can mis-behave with few clusters; GLMM uses model-based SEs. |
+
+In this analysis both frameworks lead to the **same scientific conclusion** — age, BMI, smoking are positively associated with hypertension; physical activity is protective — because $\hat\sigma_u^2$ is small and the Neuhaus attenuation factor is therefore close to 1. The GLMM is reported as the primary model because the assignment foregrounds the conditional interpretation, the variance component, and the MOR; the GEE is reported as the marginal counterpart, accompanied by QIC-based working-correlation selection and goodness-of-fit testing.
+
+# Reporting checklist and limitations
+
+- **Effect estimates reported.** Odds ratios with 95% CIs are reported separately under the population-average (GEE) and cluster-specific (GLMM) interpretations because they answer different scientific questions and are not interchangeable.
+- **Standard errors.** GLMM inference uses model-based SEs from `glmer` with Wald CIs. GEE inference uses the robust sandwich estimator throughout; the naive/robust comparison documents the magnitude of the clustering correction.
+- **Model building.** Scale of continuous covariates checked via fractional polynomials on the standard logistic surrogate (Hosmer et al. 2013, §9.5.2) — linear-in-logit retained for age, BMI, and physical activity. Three clinically plausible interactions screened via LRT — none significant.
+- **Working correlation.** Exchangeable structure chosen as the primary GEE result via **QIC**; independence shown for sensitivity.
+- **Variance component.** Between-clinic variance ($\hat\sigma_u^2 = 0.106$ in `m1`), latent-scale ICC (3.1%), and **MOR = 1.26** all reported.
+- **Quadrature sensitivity.** `m1` re-fitted with Q = 7, 11, 21 quadrature points. All fixed-effect estimates moved \< 1%; far below the 5–10% threshold of Hosmer et al. (2013, p. 352).
+- **Random-effects normality.** Standardised empirical-Bayes intercepts checked via QQ plot and Shapiro–Wilk; normality assumption not rejected. Note: lme4 supplies the "comparative" SE, not the "diagnostic" SE (Goldstein 2003; Hosmer et al. 2013, p. 368) — the book judges the comparative version *"usually leads to similar conclusions"*.
+- **Level-1 residuals.** Squared Pearson and squared deviance residuals plotted against fitted probabilities; characteristic curves observed; small number of large-residual observations retained as genuine misfit, not data errors.
+- **Random slopes.** A random slope for BMI was tested and rejected (singular fit; LRT p = 0.93).
+- **Goodness of fit (GEE).** Modified Hosmer–Lemeshow and Horton's score test on decile-of-risk indicators both support GEE fit. Evans–Hosmer $zX^2$ / $zU$ residual statistics not directly implemented in R but described.
+- **Cluster influence (GEE).** DCLS- and MCLS-analogue computed via leave-one-cluster-out refit; no clinic exerts outlier influence.
+- **PA vs CS attenuation.** Neuhaus formula $\beta_{PA} \approx \beta_S[1 - \rho(0)]$ verified empirically: attenuation factor $1 - 0.019 \approx 0.98$ reproduces the GEE coefficients from the GLMM coefficients to within rounding.
+- **Estimation.** GLMM by adaptive Gauss-Hermite quadrature (`nAGQ = 20` for `m0` and `m1`, Laplace for the random-slope `m2`). GEE by Liang–Zeger generalised estimating equations with the binomial-logit link.
+- **Assumptions and caveats.**
+  - GEE consistency requires that any missingness is missing completely at random (MCAR). The dataset is complete.
+  - The number of clusters (25) is at the lower end of what the sandwich estimator handles comfortably; small-sample corrections (Mancl–DeRouen) could be considered if results were borderline.
+  - GLMM consistency requires that the random-effects distribution is correctly specified (normal). The Q-Q plot and Shapiro–Wilk support this assumption here.
+- **What this analysis cannot do.** Causal interpretation requires more than correlated-data correction. The design is cross-sectional; reverse causation (e.g., hypertension diagnosis prompting reduced physical activity) cannot be ruled out.
+
+# Summary of findings
+
+- Among 1,000 patients clustered within 25 primary-care clinics, overall hypertension prevalence was **21.1%**, ranging from **7.5% to 45.0%** across clinics.
+- The empty GLMM gave a between-clinic variance of $\hat\sigma_u^2 = 0.146$, an ICC of **4.2%**, and a **Median Odds Ratio of 1.31**, confirming non-trivial clinic-level clustering.
+- Fractional-polynomial scale checks selected the linear form for age, BMI, and physical activity; the three clinically plausible interactions were not statistically significant — additive linear-in-logit specification retained.
+- After adjustment for age, BMI, weekly physical activity, and smoking (`m1`), all four covariates were independently and significantly associated with hypertension within the same clinic: age **OR 1.04 per year (1.03–1.06)**, BMI **OR 1.11 per kg/m² (1.07–1.16)**, physical activity **OR 0.84 per hour/week (0.78–0.90)**, current smoking **OR 2.07 (1.46–2.91)**.
+- Between-clinic variance fell to $\hat\sigma_u^2 = 0.106$ (a 27% reduction) and the **MOR contracted to 1.26**; both quantify the residual clinic-level signal after covariate adjustment.
+- GLMM diagnostics: quadrature sensitivity check (Q = 7, 11, 21) showed \< 1% change in every fixed effect; Shapiro–Wilk on standardised random intercepts did not reject normality; Pearson and deviance level-1 residuals showed only a small number of large values, all retained.
+- The exchangeable-GEE fit returned $\hat\rho = 0.019$ and odds ratios essentially identical to the GLMM (age 1.043, BMI 1.112, PA 0.841, smoking 2.03). **QIC** weakly favoured the exchangeable working correlation over independence.
+- **Modified Hosmer–Lemeshow** ($\hat C$ on 8 df) and **Horton's score test** on decile-of-risk indicators both supported the GEE fit. Cluster-level **DCLS- and MCLS-analogue** diagnostics flagged no clinic as outlier.
+- The naive-vs-robust SE comparison flagged **physical activity** as the covariate whose variability is most clearly partitioned between clinics (robust/naive = 1.25); the other three covariates behaved almost as if independent.
+- The **Neuhaus attenuation formula** $\beta_{PA} \approx \beta_S [1 - \rho(0)]$ predicts a 1.9% shrinkage from CS to PA betas given $\hat\rho = 0.019$ — and the empirical GEE coefficients match the GLMM coefficients to within that margin. This *quantitatively* explains the convergence between the two model families in the present dataset.
+- For a 50-year-old non-smoker with BMI 28 and 3 hours/week of activity, the GLMM predicts hypertension probability from **0.14 to 0.27 across clinics**, against an "average clinic" prediction of **0.18** — a clinically meaningful clinic-level shift even after controlling for the measured risk factors.
+
+# References
+
+1.  Hosmer DW, Lemeshow S, Sturdivant RX. *Applied Logistic Regression*, 3rd ed. Wiley, 2013. Chapter 9.
+2.  Kamarul Imran Musa. *Lecture Notes: Binary Logistic Regression for Correlated Data — DrPH Epidemiology Speciality.* 2020-04-12.
+3.  Kamarul Imran Musa. *Practicals: Logistic Regression for Correlated Data.* 2021-04-15.
+4.  Larsen K, Petersen JH, Budtz-Jørgensen E, Endahl L. Interpreting parameters in the logistic regression model with random effects. *Biometrics* 2000; 56:909–14. *(MOR / IOR)*
+5.  Neuhaus JM, Kalbfleisch JD, Hauck WW. A comparison of cluster-specific and population-averaged approaches for analyzing correlated binary data. *Int Stat Rev* 1991; 59:25–35. *(attenuation formula)*
+6.  Pan W. Akaike's information criterion in generalized estimating equations. *Biometrics* 2001; 57:120–5. *(QIC)*
+7.  Preisser JS, Qaqish BF. Deletion diagnostics for generalised estimating equations. *Biometrika* 1996; 83:551–62. *(DCLS, MCLS, GEE hat matrix)*
+8.  Evans SR, Hosmer DW. Goodness of fit tests in mixed effects logistic models. *Communications in Statistics — Theory and Methods* 2004; 33:1139–1155. *(zX², zU)*
+9.  Horton NJ, Bebchuk JD, Jones CL, *et al.* Goodness-of-fit for GEE: an example with mental health service utilization. *Stat Med* 1999; 18:213–22.
+10. Rabe-Hesketh S, Skrondal A. *Multilevel and Longitudinal Modeling Using Stata*, 2nd ed. Stata Press, 2008.

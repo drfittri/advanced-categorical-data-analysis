@@ -1,0 +1,863 @@
+---
+title: "Ordinal Logistic Regression: Diabetes Health Status"
+subtitle: "Analysis of CDC BRFSS 2015 Health Indicators Dataset"
+author: "DrPH Student"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    theme: flatly
+    code-fold: true
+    code-summary: "Show code"
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+# Introduction
+
+This assignment applies **ordinal logistic regression** (proportional odds model) to the CDC Behavioral Risk Factor Surveillance System (BRFSS) 2015 dataset. The dataset contains 253,680 survey responses from US adults.
+
+**Research question:** What sociodemographic, behavioural, and clinical factors are associated with severity of diabetes status (No Diabetes → Pre-diabetes → Diabetes)?
+
+**Outcome variable:** `Diabetes_012`, an ordered three-category variable:
+
+- `0` = No diabetes
+- `1` = Pre-diabetes
+- `2` = Diabetes
+
+The natural ordering makes the **proportional odds model (cumulative link model)** the appropriate analytical framework, as described by Hosmer, Lemeshow & Sturdivant (Chapter 8, *Applied Logistic Regression*, 3rd ed.).
+
+---
+
+# Data Preparation
+
+## Load Libraries
+
+```{r}
+#| label: load-libraries
+
+library(tidyverse)
+library(ordinal)     # clm() — cumulative link model
+library(gtsummary)   # publication-quality tables
+library(broom)       # tidy model outputs
+library(knitr)       # table rendering
+library(kableExtra)  # table styling
+library(car)         # vif() — multicollinearity check
+```
+
+## Read and Inspect Data
+
+```{r}
+#| label: read-data
+
+dat <- read_csv("diabetes_sample_2200.csv")
+glimpse(dat)
+```
+
+The working dataset is a **stratified random sample** (n = 2,200) drawn from the full CDC BRFSS 2015 dataset (n = 253,680). Stratification was performed on `Diabetes_012`:
+
+- No Diabetes: n = 1,600 (72.7%)
+- Pre-Diabetes: n = 150, oversampled (population prevalence ≈ 1.8%)
+- Diabetes: n = 450 (20.5%)
+
+Pre-diabetes was intentionally oversampled. Proportional sampling would yield fewer than 40 cases, insufficient for stable coefficient estimation. ORs from this analysis reflect sample associations and are not used to estimate population-level prevalence.
+
+## Variable Recoding
+
+```{r}
+#| label: recode-variables
+
+dat <- dat %>%
+  mutate(
+    diabetes_cat = factor(Diabetes_012,
+                          levels  = c(0, 1, 2),
+                          labels  = c("No Diabetes", "Pre-Diabetes", "Diabetes"),
+                          ordered = TRUE),
+
+    HighBP               = factor(HighBP,               labels = c("No", "Yes")),
+    HighChol             = factor(HighChol,             labels = c("No", "Yes")),
+    CholCheck            = factor(CholCheck,            labels = c("No", "Yes")),
+    Smoker               = factor(Smoker,               labels = c("No", "Yes")),
+    Stroke               = factor(Stroke,               labels = c("No", "Yes")),
+    HeartDiseaseorAttack = factor(HeartDiseaseorAttack, labels = c("No", "Yes")),
+    PhysActivity         = factor(PhysActivity,         labels = c("No", "Yes")),
+    Fruits               = factor(Fruits,               labels = c("No", "Yes")),
+    Veggies              = factor(Veggies,              labels = c("No", "Yes")),
+    HvyAlcoholConsump    = factor(HvyAlcoholConsump,    labels = c("No", "Yes")),
+    AnyHealthcare        = factor(AnyHealthcare,        labels = c("No", "Yes")),
+    NoDocbcCost          = factor(NoDocbcCost,          labels = c("No", "Yes")),
+    DiffWalk             = factor(DiffWalk,             labels = c("No", "Yes")),
+    Sex                  = factor(Sex,                  labels = c("Female", "Male")),
+
+    # Unordered factor — produces interpretable category comparisons (ref = Excellent)
+    GenHlth = factor(GenHlth,
+                     levels = 1:5,
+                     labels = c("Excellent", "Very Good", "Good", "Fair", "Poor")),
+
+    # Collapsed from 13 two-to-five-year groups into 6 clinical bands
+    Age = factor(dplyr::case_match(Age,
+                   c(1, 2, 3)    ~ "18-34",
+                   c(4, 5)       ~ "35-44",
+                   c(6, 7)       ~ "45-54",
+                   c(8, 9)       ~ "55-64",
+                   c(10, 11)     ~ "65-74",
+                   c(12, 13)     ~ "75+"),
+                 levels = c("18-34", "35-44", "45-54", "55-64", "65-74", "75+")),
+
+    Education = factor(Education,
+                       levels = 1:6,
+                       labels = c("Never attended", "Elementary", "Some high school",
+                                  "High school grad", "Some college", "College grad")),
+    Income    = factor(Income,
+                       levels = 1:8,
+                       labels = c("<$10k", "$10-15k", "$15-20k", "$20-25k",
+                                  "$25-35k", "$35-50k", "$50-75k", ">$75k"))
+  )
+
+levels(dat$diabetes_cat)
+```
+
+Ordering confirmed: **No Diabetes < Pre-Diabetes < Diabetes**.
+
+---
+
+# Exploratory Data Analysis
+
+## Outcome Distribution
+
+```{r}
+#| label: outcome-distribution
+#| fig-cap: "Distribution of diabetes status"
+
+dat %>%
+  count(diabetes_cat) %>%
+  mutate(pct   = round(n / sum(n) * 100, 1),
+         label = paste0(n, " (", pct, "%)")) %>%
+  ggplot(aes(x = diabetes_cat, y = n, fill = diabetes_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = label), hjust = -0.1, size = 3.5) +
+  scale_fill_manual(values = c("#2ecc71", "#f39c12", "#e74c3c")) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  coord_flip() +
+  labs(title = "Distribution of Diabetes Status", x = NULL, y = "Count") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none", plot.title = element_text(face = "bold"))
+```
+
+## Descriptive Statistics by Outcome
+
+```{r}
+#| label: descriptive-table
+
+dat %>%
+  select(diabetes_cat, HighBP, HighChol, BMI, Smoker,
+         PhysActivity, GenHlth, Age, Sex, Education, Income) %>%
+  tbl_summary(
+    by = diabetes_cat,
+    statistic = list(all_continuous()  ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = all_continuous() ~ 1,
+    label = list(
+      HighBP       ~ "High Blood Pressure",
+      HighChol     ~ "High Cholesterol",
+      BMI          ~ "BMI (continuous)",
+      Smoker       ~ "Ever Smoked ≥100 cigarettes",
+      PhysActivity ~ "Physical Activity (past 30 days)",
+      GenHlth      ~ "General Health (self-rated)",
+      Age          ~ "Age Group",
+      Sex          ~ "Sex",
+      Education    ~ "Education Level",
+      Income       ~ "Income Category"
+    )
+  ) %>%
+  add_overall() %>%
+  bold_labels() %>%
+  modify_caption("**Table 1. Descriptive Statistics by Diabetes Status**")
+```
+
+---
+
+# Model Building
+
+## Univariable Screening
+
+All candidate predictors are screened individually using separate proportional odds models (`clm`). Variables with **p < 0.25** (Hosmer-Lemeshow criterion) are considered for the multivariable model.
+
+```{r}
+#| label: univariable-screening
+
+dat %>%
+  select(diabetes_cat,
+         HighBP, HighChol, BMI, Smoker, PhysActivity, GenHlth, Age, Sex,
+         Education, Income, CholCheck, Stroke, HeartDiseaseorAttack,
+         Fruits, Veggies, HvyAlcoholConsump, AnyHealthcare, NoDocbcCost,
+         DiffWalk) %>%
+  tbl_uvregression(
+    method       = clm,
+    y            = diabetes_cat,
+    exponentiate = TRUE,
+    hide_n       = TRUE
+  ) %>%
+  bold_p(t = 0.25) %>%
+  bold_labels() %>%
+  modify_caption("**Table 2. Univariable Screening — Unadjusted Odds Ratios (bold = p < 0.25)**")
+```
+
+**Screening decision:** Bold p-values indicate variables meeting the p < 0.25 entry criterion. From those that pass, the multivariable model includes predictors selected on clinical relevance and established BRFSS literature: **High Blood Pressure, High Cholesterol, BMI, Smoking, Physical Activity, General Health, Sex, and Age group.** Variables screened but not retained (e.g., Fruits, Veggies, HvyAlcoholConsump) did not meet the clinical relevance criterion for the primary model.
+
+## Full Adjusted Model
+
+The proportional odds model is fitted using `ordinal::clm()` with the logit link. The model simultaneously estimates two sets of parameters:
+
+- **Threshold parameters** (α₁, α₂): the two log-odds boundaries between the three ordered categories (*No Diabetes|Pre-Diabetes* and *Pre-Diabetes|Diabetes*). These are nuisance parameters that define the model's internal cut-points and are not clinically interpreted.
+- **Regression coefficients** (β): one per predictor term, shared across both thresholds under the proportional odds constraint. A positive β means the predictor is associated with higher odds of more severe diabetes, while a negative β is protective.
+
+The `summary()` output is organised into two blocks: (1) **Threshold coefficients**: the α cut-points, and (2) **Coefficients**: the β estimates with standard error, z-statistic, and p-value. Only the Coefficients block is used for clinical inference.
+
+```{r}
+#| label: full-model
+
+m_full <- clm(diabetes_cat ~ HighBP + HighChol + BMI + Smoker +
+                PhysActivity + GenHlth + Sex + Age,
+              data = dat,
+              link = "logit")
+
+summary(m_full)
+```
+
+**Reading the output:** Focus on the **Coefficients** block. Positive coefficients (e.g., HighBP, BMI) indicate association with higher diabetes severity, while negative coefficients (e.g., PhysActivity) are protective. The threshold parameters (α) above the Coefficients block define internal cut-points and are not tested.
+
+---
+
+# Model Diagnostics
+
+## Multicollinearity Check
+
+`ordinal::clm()` does not have a native VIF method. A proxy linear model fitted to the same predictors provides a well-accepted VIF approximation via `car::vif()`.
+
+```{r}
+#| label: vif-check
+
+mod_lm_vif <- lm(as.numeric(diabetes_cat) ~ HighBP + HighChol + BMI + Smoker +
+                   PhysActivity + GenHlth + Sex + Age,
+                 data = dat)
+
+vif_mat     <- car::vif(mod_lm_vif)
+vif_adj     <- vif_mat[, 3]
+vif_max     <- round(max(vif_adj), 2)
+vif_top     <- names(which.max(vif_adj))
+vif_concern <- vif_adj[vif_adj >= 2.0]
+vif_mat
+```
+
+**Interpretation:** `r if(length(vif_concern) == 0) { paste0("All GVIF^(1/(2·Df)) values are below 2.0. The highest adjusted VIF is ", vif_max, " for ", vif_top, ". No predictor shows problematic collinearity — coefficient estimates and standard errors are interpreted without concern.") } else { paste0(length(vif_concern), " predictor(s) exceed GVIF^(1/(2·Df)) = 2.0: ", paste(names(vif_concern), round(vif_concern, 2), sep = " = ", collapse = "; "), ". Standard errors for these predictors may be inflated — OR estimates for these predictors are interpreted with caution. The highest adjusted VIF is ", vif_max, " for ", vif_top, ".") }`
+
+## BMI Linearity Check
+
+The proportional odds model assumes a log-linear BMI–diabetes relationship. This is verified by computing the Pearson correlation between BMI quartile midpoints and empirical log-odds at both cumulative thresholds.
+
+```{r}
+#| label: bmi-linearity
+#| fig-cap: "Empirical log-odds of P(Y ≥ j) across BMI quartiles."
+
+bmi_lo <- dat %>%
+  mutate(BMI_q = cut(BMI,
+                     breaks = quantile(BMI, probs = seq(0, 1, 0.25), na.rm = TRUE),
+                     include.lowest = TRUE)) %>%
+  group_by(BMI_q) %>%
+  summarise(
+    BMI_mid = mean(BMI),
+    lo_pre  = qlogis(pmin(pmax(mean(as.integer(diabetes_cat) >= 2), 1e-6), 1 - 1e-6)),
+    lo_dia  = qlogis(pmin(pmax(mean(as.integer(diabetes_cat) >= 3), 1e-6), 1 - 1e-6)),
+    .groups = "drop"
+  )
+
+bmi_cor_pre <- round(cor(bmi_lo$BMI_mid, bmi_lo$lo_pre), 3)
+bmi_cor_dia <- round(cor(bmi_lo$BMI_mid, bmi_lo$lo_dia), 3)
+
+tibble(Threshold   = c("≥ Pre-Diabetes", "≥ Diabetes"),
+       Correlation = c(bmi_cor_pre, bmi_cor_dia)) %>%
+  kable(caption = "Pearson correlation — BMI quartile midpoint vs empirical log-odds",
+        digits = 3) %>%
+  kable_styling(bootstrap_options = "striped", full_width = FALSE)
+
+bmi_lo %>%
+  pivot_longer(c(lo_pre, lo_dia), names_to = "threshold", values_to = "log_odds") %>%
+  mutate(threshold = dplyr::case_match(threshold,
+    "lo_pre" ~ "≥ Pre-Diabetes",
+    "lo_dia" ~ "≥ Diabetes")) %>%
+  ggplot(aes(x = BMI_mid, y = log_odds, colour = threshold)) +
+  geom_point(size = 3) + geom_line() +
+  labs(x = "BMI (quartile midpoint)", y = "Log-odds P(Y ≥ j)", colour = "Threshold") +
+  theme_minimal()
+```
+
+**Interpretation:** The Pearson correlation between BMI quartile midpoint and empirical log-odds was `r bmi_cor_pre` (≥ Pre-Diabetes) and `r bmi_cor_dia` (≥ Diabetes). `r if(abs(bmi_cor_pre) >= 0.95 & abs(bmi_cor_dia) >= 0.95) { "Both correlations indicate a near-perfect linear relationship, strongly supporting the log-linear assumption for BMI." } else if(abs(bmi_cor_pre) >= 0.85 & abs(bmi_cor_dia) >= 0.85) { "Both correlations are strong, broadly supporting the log-linear assumption. Minor deviation from linearity is present but unlikely to materially bias the BMI coefficient." } else { "One or both correlations fall below 0.85, indicating that the log-linear relationship between BMI and log-odds may not hold well across all BMI ranges. The BMI coefficient is interpreted with caution." }`
+
+---
+
+# Model Results
+
+```{r}
+#| label: term-labels
+#| include: false
+
+term_label <- function(x) {
+  dplyr::case_match(x,
+    "HighBPYes"           ~ "High Blood Pressure (Yes vs No)",
+    "HighCholYes"         ~ "High Cholesterol (Yes vs No)",
+    "BMI"                 ~ "BMI (per 1-unit increase)",
+    "SmokerYes"           ~ "Ever Smoked (Yes vs No)",
+    "PhysActivityYes"     ~ "Physical Activity past 30 days (Yes vs No)",
+    "GenHlthVery Good"    ~ "General Health: Very Good vs Excellent",
+    "GenHlthGood"         ~ "General Health: Good vs Excellent",
+    "GenHlthFair"         ~ "General Health: Fair vs Excellent",
+    "GenHlthPoor"         ~ "General Health: Poor vs Excellent",
+    "SexMale"             ~ "Sex: Male vs Female",
+    "Age35-44"            ~ "Age: 35–44 vs 18–34",
+    "Age45-54"            ~ "Age: 45–54 vs 18–34",
+    "Age55-64"            ~ "Age: 55–64 vs 18–34",
+    "Age65-74"            ~ "Age: 65–74 vs 18–34",
+    "Age75+"              ~ "Age: 75+ vs 18–34",
+    .default = x
+  )
+}
+```
+
+## Adjusted Odds Ratios
+
+The primary results are presented as exponentiated coefficients (odds ratios). An OR > 1 indicates association with higher odds of more severe diabetes, while OR < 1 is protective. All ORs are adjusted for all other predictors in the model.
+
+```{r}
+#| label: or-table
+
+or_tbl <- tidy(m_full, exponentiate = TRUE, conf.int = TRUE) %>%
+  filter(coef.type == "location")
+
+n_terms  <- nrow(or_tbl)
+n_sig    <- sum(or_tbl$p.value < 0.05, na.rm = TRUE)
+nonsig_t <- term_label(or_tbl$term[or_tbl$p.value >= 0.05])
+
+cat(sprintf("Total predictor terms : %d\n", n_terms))
+cat(sprintf("Significant (α = 0.05): %d\n", n_sig))
+if (length(nonsig_t) > 0)
+  cat(sprintf("Non-significant       : %s\n", paste(nonsig_t, collapse = "; ")))
+
+or_tbl %>%
+  mutate(term = term_label(term)) %>%
+  select(term, estimate, conf.low, conf.high, p.value) %>%
+  kable(digits = 3,
+        col.names = c("Predictor", "OR", "95% CI Lower", "95% CI Upper", "p-value"),
+        caption = "Table 3. Adjusted Odds Ratios — Ordinal Logistic Regression") %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE) %>%
+  footnote(general = "Reference: HighBP = No, HighChol = No, Smoker = No, PhysActivity = No, GenHlth = Excellent, Sex = Female, Age = 18–34.")
+```
+
+**Interpretation:** Of the `r n_terms` predictor terms, `r n_sig` `r ifelse(n_sig == n_terms, "(all)", paste0("of ", n_terms))` are statistically significant at α = 0.05. `r if(length(nonsig_t) > 0) paste0("Non-significant: ", paste(nonsig_t, collapse = "; "), ", retained on clinical grounds.") else ""` Detailed predictor-level interpretation follows in the Interpretation of Results section.
+
+## Threshold Coefficients
+
+```{r}
+#| label: thresholds
+
+thresh_df <- tidy(m_full, conf.int = TRUE) %>% filter(coef.type == "intercept")
+t1_val    <- round(thresh_df$estimate[thresh_df$term == "No Diabetes|Pre-Diabetes"], 3)
+t2_val    <- round(thresh_df$estimate[thresh_df$term == "Pre-Diabetes|Diabetes"], 3)
+
+cat(sprintf("Threshold 1 (No Diabetes | Pre-Diabetes) = %.3f\n", t1_val))
+cat(sprintf("Threshold 2 (Pre-Diabetes | Diabetes)    = %.3f\n", t2_val))
+
+thresh_df %>%
+  select(term, estimate, std.error, statistic, p.value) %>%
+  kable(digits = 3,
+        col.names = c("Threshold", "Estimate", "SE", "z", "p-value"),
+        caption = "Table 4. Threshold Coefficients (Cut Points)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+**Interpretation:** The first threshold (`No Diabetes|Pre-Diabetes` = `r t1_val`) is the log-odds boundary where cumulative probability transitions from *No Diabetes* into the higher categories. The second threshold (`Pre-Diabetes|Diabetes` = `r t2_val`) marks the boundary between the lower two categories and *Diabetes*. Since `r t2_val` > `r t1_val`, the thresholds are correctly ordered with no reversal detected, confirming internal model consistency. These values are nuisance parameters and not interpreted clinically.
+
+---
+
+# Proportional Odds Assumption
+
+The **proportional odds assumption** (parallel regression assumption) requires that the OR for each predictor is constant across both cumulative thresholds. Two formal tests are applied using the `ordinal` package.
+
+> **Note on Brant test:** The Brant test (via `MASS::polr()`) is not applied here. With only n = 150 in the Pre-Diabetes category and multi-level predictors (GenHlth: 4 levels, Age: 6 levels), the test consistently fails to converge, as fitting separate binary logistic models at each threshold becomes computationally infeasible with sparse middle-category cells. The `nominal_test()` and `scale_test()` from the `ordinal` package are the more appropriate primary assessments for `clm()` models.
+
+## Nominal Test
+
+The nominal test compares the fitted model against a version where each predictor is allowed to have a different effect at each threshold. A significant p-value (p < 0.05) indicates the effect of that predictor varies across thresholds, which is a violation of proportional odds.
+
+```{r}
+#| label: nominal-test
+
+nt_res    <- nominal_test(m_full)
+nt_pvals  <- nt_res[["Pr(>Chi)"]]
+names(nt_pvals) <- rownames(nt_res)
+nt_pvals  <- nt_pvals[names(nt_pvals) != "<none>"]   # exclude baseline row
+nt_fail   <- names(nt_pvals[!is.na(nt_pvals) & nt_pvals < 0.05])
+nt_pass   <- names(nt_pvals[!is.na(nt_pvals) & nt_pvals >= 0.05])
+nt_na     <- names(nt_pvals[is.na(nt_pvals)])
+
+cat(sprintf("Violate assumption (p < 0.05): %s\n",
+            if(length(nt_fail) > 0) paste(nt_fail, collapse = ", ") else "none"))
+cat(sprintf("Hold assumption   (p ≥ 0.05): %s\n",
+            if(length(nt_pass) > 0) paste(nt_pass, collapse = ", ") else "none"))
+cat(sprintf("Returned NA                 : %s\n",
+            if(length(nt_na) > 0) paste(nt_na, collapse = ", ") else "none"))
+nt_res
+```
+
+**Interpretation:** `r length(nt_fail)` of `r length(nt_fail) + length(nt_pass)` tested predictors showed significant deviation from proportional odds (p < 0.05): `r if(length(nt_fail) > 0) paste(nt_fail, collapse = ", ") else "none"`. `r if(length(nt_pass) > 0) paste0(length(nt_pass), " predictor(s) held the assumption: ", paste(nt_pass, collapse = ", "), ".") else ""` Any flagged predictor has an effect that differs in magnitude (though not necessarily in direction) across the two cumulative thresholds (No Diabetes|Pre-Diabetes vs. Pre-Diabetes|Diabetes). With n = `r nrow(dat)`, the test is sensitive enough to detect even trivially small deviations, so a statistically significant result will be interpreted alongside the practical magnitude of the difference.
+
+## Scale Test
+
+The scale test assesses whether the variance of the underlying latent variable differs across predictor levels (heteroscedasticity on the latent scale). A significant result suggests the spread of the latent diabetes severity distribution is not constant across that predictor's levels.
+
+```{r}
+#| label: scale-test
+
+st_res    <- scale_test(m_full)
+st_pvals  <- st_res[["Pr(>Chi)"]]
+names(st_pvals) <- rownames(st_res)
+st_pvals  <- st_pvals[names(st_pvals) != "<none>"]   # exclude baseline row
+st_fail   <- names(st_pvals[!is.na(st_pvals) & st_pvals < 0.05])
+st_pass   <- names(st_pvals[!is.na(st_pvals) & st_pvals >= 0.05])
+
+cat(sprintf("Significant scale effect (p < 0.05): %s\n",
+            if(length(st_fail) > 0) paste(st_fail, collapse = ", ") else "none"))
+cat(sprintf("No scale effect          (p ≥ 0.05): %s\n",
+            if(length(st_pass) > 0) paste(st_pass, collapse = ", ") else "none"))
+st_res
+```
+
+**Interpretation:** `r length(st_fail)` predictor(s) showed a significant scale effect (p < 0.05): `r if(length(st_fail) > 0) paste(st_fail, collapse = ", ") else "none"`. `r if(length(st_pass) > 0) paste0(length(st_pass), " predictor(s) showed no scale effect: ", paste(st_pass, collapse = ", "), ".") else ""` `r if(length(st_fail) > 0) "Significant scale effects indicate heteroscedasticity on the latent diabetes severity scale for the flagged predictors, meaning the spread of the latent distribution is not constant across levels of these predictors. OR estimates for flagged predictors are interpreted with this in mind." else "The absence of significant scale effects supports the homoscedasticity assumption, with latent variance consistent across predictor levels."`
+
+---
+
+# Model Fit
+
+## Global Likelihood Ratio Test
+
+```{r}
+#| label: lrt-global
+
+m_null     <- clm(diabetes_cat ~ 1, data = dat)
+lrt_global <- anova(m_null, m_full)
+lrt_chi    <- round(lrt_global[2, "LR.stat"], 1)
+lrt_df     <- lrt_global[2, "df"]
+
+cat(sprintf("Global LRT: χ²(%d) = %.1f, p < 0.001\n", lrt_df, lrt_chi))
+cat(sprintf("AIC — Null: %.0f  |  Full: %.0f  |  ΔAIC: %.0f\n",
+            AIC(m_null), AIC(m_full), AIC(m_null) - AIC(m_full)))
+lrt_global
+```
+
+**Interpretation:** The full model significantly improves fit over the null model (LRT χ²(`r lrt_df`) = `r format(lrt_chi, big.mark = ",")`, p < 0.001). AIC dropped from `r round(AIC(m_null), 0)` to `r round(AIC(m_full), 0)`, a reduction of `r round(AIC(m_null) - AIC(m_full), 0)` points, confirming the 8 predictors collectively explain substantial variation in diabetes severity beyond what the intercepts alone capture.
+
+## Pseudo R²
+
+```{r}
+#| label: pseudo-r2
+
+loglik_full <- as.numeric(logLik(m_full))
+loglik_null <- as.numeric(logLik(m_null))
+n           <- nrow(dat)
+
+r2_mcf <- 1 - (loglik_full / loglik_null)
+r2_cox <- 1 - exp((2 / n) * (loglik_null - loglik_full))
+r2_nag <- r2_cox / (1 - exp((2 / n) * loglik_null))
+
+cat(sprintf("McFadden Pseudo R²   = %.4f\n", r2_mcf))
+cat(sprintf("Nagelkerke Pseudo R² = %.4f\n", r2_nag))
+```
+
+**Interpretation:** McFadden R² = `r round(r2_mcf, 3)` and Nagelkerke R² = `r round(r2_nag, 3)`. `r if(r2_mcf >= 0.40) { paste0("A McFadden R² of ", round(r2_mcf, 3), " exceeds the 0.40 threshold considered excellent for logistic models.") } else if(r2_mcf >= 0.20) { paste0("A McFadden R² of ", round(r2_mcf, 3), " falls in the 0.20–0.40 range considered good for logistic models, indicating the model explains a moderate-to-substantial proportion of variation.") } else { paste0("A McFadden R² of ", round(r2_mcf, 3), " is below 0.20, indicating the 8 predictors in the current model explain a limited proportion of variation in diabetes severity.") }` Nagelkerke R² = `r round(r2_nag, 3)` is the preferred metric for reporting in health sciences.
+
+## Variable Contribution (Drop-one LRT)
+
+```{r}
+#| label: drop-one
+
+d1_res    <- drop1(m_full, test = "Chi")
+d1_pred   <- d1_res[rownames(d1_res) != "<none>", ]
+d1_pcol   <- names(d1_pred)[ncol(d1_pred)]
+top3      <- paste(term_label(rownames(d1_pred)[order(d1_pred$LRT, decreasing = TRUE)[1:3]]),
+                   collapse = ", ")
+d1_nonsig <- rownames(d1_pred)[!is.na(d1_pred[[d1_pcol]]) & d1_pred[[d1_pcol]] > 0.05]
+n_nonsig  <- length(d1_nonsig)
+
+cat(sprintf("Top 3 contributors: %s\n", top3))
+cat(sprintf("Non-significant predictors (p > 0.05): %s\n",
+            if(n_nonsig > 0) paste(term_label(d1_nonsig), collapse = "; ") else "none"))
+d1_res
+```
+
+**Interpretation:** The three largest independent contributions are from **`r top3`**. `r if(n_nonsig == 0) { paste0("All ", nrow(d1_pred), " predictors contributed significantly (p < 0.05) beyond the others, and none are redundant in the adjusted model.") } else { paste0(n_nonsig, " predictor(s) did not reach significance in the drop-one test (p > 0.05): ", paste(term_label(d1_nonsig), collapse = ", "), ". Their independent contribution beyond the remaining predictors is marginal in this sample.") }`
+
+---
+
+# Interaction Analysis
+
+One a priori biologically plausible interaction is tested: **`HighBP × BMI`**. Hypertension and obesity share the insulin-resistance pathway, and the BMI slope on diabetes odds may differ between those with and without high blood pressure.
+
+```{r}
+#| label: interaction-model
+
+m_int   <- clm(diabetes_cat ~ HighBP * BMI + HighChol + Smoker +
+                 PhysActivity + GenHlth + Sex + Age,
+               data = dat, link = "logit")
+
+int_lrt <- anova(m_full, m_int)
+int_chi <- round(int_lrt[2, "LR.stat"], 2)
+int_df  <- int_lrt[2, "df"]
+int_p   <- int_lrt[2, "Pr(>Chisq)"]
+
+cat(sprintf("LRT (HighBP × BMI interaction): χ²(%d) = %.2f, p = %.3f\n",
+            int_df, int_chi, int_p))
+int_lrt
+```
+
+```{r}
+#| label: interaction-results
+
+int_or_tbl <- tidy(m_int, exponentiate = TRUE, conf.int = TRUE) %>%
+  filter(coef.type == "location", str_detect(term, ":"))
+
+int_or_val <- round(int_or_tbl$estimate[1], 3)
+int_ci_lo  <- round(int_or_tbl$conf.low[1], 3)
+int_ci_hi  <- round(int_or_tbl$conf.high[1], 3)
+int_or_p   <- int_or_tbl$p.value[1]
+
+cat(sprintf("HighBP × BMI interaction OR = %.3f (95%% CI: %.3f–%.3f, p = %.3f)\n",
+            int_or_val, int_ci_lo, int_ci_hi, int_or_p))
+
+int_or_tbl %>%
+  select(term, estimate, conf.low, conf.high, p.value) %>%
+  kable(caption = "Interaction term — OR and 95% CI", digits = 3,
+        col.names = c("Term", "OR", "95% CI Lower", "95% CI Upper", "p-value")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Interpretation:** The LRT shows that adding the `HighBP × BMI` interaction `r ifelse(int_p < 0.05, "significantly improves", "does not significantly improve")` model fit (χ²(`r int_df`) = `r int_chi`, p = `r round(int_p, 3)`). `r if(int_p < 0.05) { paste0("The interaction OR of ", int_or_val, " (95% CI: ", int_ci_lo, "–", int_ci_hi, ", p = ", round(int_or_p, 3), ") indicates that among those with high blood pressure, each 1-unit BMI increase carries ", int_or_val, " times the per-unit BMI odds compared to those without high blood pressure, indicating a ", ifelse(int_or_val > 1, "stronger", "weaker"), " BMI gradient in the hypertensive group. The interaction model is preferred.") } else { "The main-effects model is preferred for parsimony, as the per-unit BMI association does not meaningfully differ by hypertension status in this sample." }`
+
+---
+
+# Model Comparison
+
+```{r}
+#| label: model-comparison
+
+m_reduced <- clm(diabetes_cat ~ HighBP + HighChol + BMI + GenHlth + Sex + Age,
+                 data = dat, link = "logit")
+
+tibble(
+  Model  = c("Null (intercept only)",
+             "Reduced (−Smoker, −PhysActivity)",
+             "Full model"),
+  logLik = c(as.numeric(logLik(m_null)),
+             as.numeric(logLik(m_reduced)),
+             as.numeric(logLik(m_full))),
+  df     = c(attr(logLik(m_null),    "df"),
+             attr(logLik(m_reduced), "df"),
+             attr(logLik(m_full),    "df")),
+  AIC    = c(AIC(m_null), AIC(m_reduced), AIC(m_full)),
+  BIC    = c(BIC(m_null), BIC(m_reduced), BIC(m_full))
+) %>%
+  arrange(AIC) %>%
+  kable(digits = 1, caption = "Table 5. Model Comparison — log-likelihood, df, AIC, and BIC") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r}
+#| label: lrt-reduced
+
+lrt_red      <- anova(m_reduced, m_full)
+lrt_red_p    <- lrt_red[2, "Pr(>Chisq)"]
+lrt_red_pfmt <- ifelse(lrt_red_p < 0.001, "< 0.001", sprintf("= %.3f", lrt_red_p))
+full_best    <- AIC(m_full) < AIC(m_reduced)
+delta_aic    <- round(AIC(m_reduced) - AIC(m_full), 1)
+delta_bic    <- round(BIC(m_reduced) - BIC(m_full), 1)
+
+cat(sprintf("LRT p-value (Smoker + PhysActivity jointly): p %s\n", lrt_red_pfmt))
+lrt_red
+```
+
+**Interpretation:** `r if(full_best) { paste0("The full model has the lowest AIC (", round(AIC(m_full),1), ") and BIC (", round(BIC(m_full),1), "). Compared to the reduced model, ΔAIC = ", delta_aic, " and ΔBIC = ", delta_bic, ".") } else { paste0("The reduced model (AIC = ", round(AIC(m_reduced),1), ", BIC = ", round(BIC(m_reduced),1), ") outperforms the full model (AIC = ", round(AIC(m_full),1), ", BIC = ", round(BIC(m_full),1), ", ΔAIC = ", abs(delta_aic), " favouring reduced). Adding Smoker and PhysActivity does not recover the 2-parameter AIC penalty.") }` The LRT `r if(lrt_red_p < 0.05) { paste0("confirms Smoker and PhysActivity jointly improve fit (p ", lrt_red_pfmt, "), and both are retained.") } else { paste0("shows Smoker and PhysActivity do **not** jointly improve fit beyond the remaining predictors (p ", lrt_red_pfmt, "). The reduced model is statistically preferred. Both predictors are retained here on clinical grounds (established diabetes risk factors), but their marginal statistical contribution in this sample should be noted as a limitation.") }`
+
+---
+
+# Interpretation of Results
+
+## Proportional Odds Interpretation Framework
+
+In the proportional odds model, the **OR for each predictor is constant across both cut points**:
+
+- The odds of *Pre-Diabetes or Diabetes* vs. *No Diabetes*, **and**
+- The odds of *Diabetes* vs. *No Diabetes or Pre-Diabetes*
+
+An OR > 1 indicates greater probability of a more severe diabetes category.
+
+## Summary Table
+
+```{r}
+#| label: or-results
+
+or_results <- tidy(m_full, exponentiate = TRUE, conf.int = TRUE) %>%
+  filter(coef.type == "location")
+
+or_results %>%
+  mutate(term      = term_label(term),
+         sig       = ifelse(p.value < 0.05, "Yes", "No"),
+         direction = ifelse(estimate > 1, "Higher risk", "Lower risk")) %>%
+  select(term, estimate, conf.low, conf.high, p.value, sig, direction) %>%
+  kable(digits = 3,
+        col.names = c("Predictor", "OR", "CI Lower", "CI Upper", "p-value",
+                      "Significant?", "Direction"),
+        caption = "Table 6. Adjusted Odds Ratios — Direction and Significance") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r}
+#| label: or-extract
+#| include: false
+
+get_or <- function(trm) {
+  x <- filter(or_results, term == trm)
+  list(or  = round(x$estimate, 2),
+       lo  = round(x$conf.low, 2),
+       hi  = round(x$conf.high, 2),
+       p   = ifelse(x$p.value < 0.001, "< 0.001", sprintf("= %.3f", x$p.value)),
+       dir = ifelse(x$estimate > 1, "higher", "lower"))
+}
+
+bp      <- get_or("HighBPYes")
+chol    <- get_or("HighCholYes")
+bmi     <- get_or("BMI")
+smoke   <- get_or("SmokerYes")
+pa      <- get_or("PhysActivityYes")
+sex     <- get_or("SexMale")
+glh_vg  <- get_or("GenHlthVery Good")
+glh_g   <- get_or("GenHlthGood")
+glh_f   <- get_or("GenHlthFair")
+glh_p   <- get_or("GenHlthPoor")
+age_old <- get_or("Age75+")
+```
+
+> The OR values cited below are drawn from Table 6 above. All values are adjusted for all other predictors in the model.
+
+## Predictor-by-Predictor Interpretation
+
+1. **High Blood Pressure:** Respondents with high blood pressure had **`r bp$or` times higher odds** (95% CI: `r bp$lo`–`r bp$hi`, p `r bp$p`) of more severe diabetes compared to those without, consistent with the shared insulin resistance pathway linking hypertension and diabetes.
+
+2. **High Cholesterol:** High cholesterol was associated with **`r chol$or` times the odds** (95% CI: `r chol$lo`–`r chol$hi`, p `r chol$p`) of a higher diabetes severity category, reflecting dyslipidaemia as a core metabolic syndrome component.
+
+3. **BMI:** Each 1-unit increase in BMI multiplied the odds of more severe diabetes by **`r bmi$or`** (95% CI: `r bmi$lo`–`r bmi$hi`, p `r bmi$p`). A 5-unit increase (e.g., BMI 25 → 30) multiplies the odds by `r round(bmi$or^5, 2)`, representing a `r round((bmi$or^5 - 1) * 100, 0)`% increase, making it the strongest continuous predictor in the model.
+
+4. **Smoking:** Ever-smoking (≥100 cigarettes lifetime) was associated with **`r smoke$or` times the odds** of more severe diabetes (95% CI: `r smoke$lo`–`r smoke$hi`, p `r smoke$p`). `r if(smoke$or > 1) paste0("An OR of ", smoke$or, " indicates a ", round((smoke$or - 1)*100, 0), "% increase in odds, consistent with evidence linking nicotine to beta-cell dysfunction and insulin resistance.") else paste0("An OR of ", smoke$or, " is unexpected (OR < 1). Potential explanations include survivor bias or residual confounding.")`
+
+5. **Physical Activity:** Respondents active in the past 30 days had **`r pa$or` times the odds** of more severe diabetes (95% CI: `r pa$lo`–`r pa$hi`, p `r pa$p`), representing a **`r round((1 - pa$or) * 100, 0)`% reduction** in odds vs. inactive respondents and the largest modifiable behavioural effect in the model.
+
+6. **General Health: Very Good vs Excellent:** OR = **`r glh_vg$or`** (95% CI: `r glh_vg$lo`–`r glh_vg$hi`, p `r glh_vg$p`). A one-step decline from Excellent to Very Good is associated with `r round(abs(glh_vg$or - 1)*100, 0)`% `r glh_vg$dir` odds.
+
+7. **General Health: Good vs Excellent:** OR = **`r glh_g$or`** (95% CI: `r glh_g$lo`–`r glh_g$hi`, p `r glh_g$p`), `r round(abs(glh_g$or - 1)*100, 0)`% `r glh_g$dir` odds vs. Excellent.
+
+8. **General Health: Fair vs Excellent:** OR = **`r glh_f$or`** (95% CI: `r glh_f$lo`–`r glh_f$hi`, p `r glh_f$p`), `r round(abs(glh_f$or - 1)*100, 0)`% `r glh_f$dir` odds vs. Excellent.
+
+9. **General Health: Poor vs Excellent:** OR = **`r glh_p$or`** (95% CI: `r glh_p$lo`–`r glh_p$hi`, p `r glh_p$p`). The monotone OR gradient across health levels (Very Good → Good → Fair → Poor: `r glh_vg$or` → `r glh_g$or` → `r glh_f$or` → `r glh_p$or`) confirms a clear dose-response pattern, consistent with self-rated health as a validated proxy for metabolic burden.
+
+10. **Sex:** Male respondents had **`r sex$or` times the odds** of more severe diabetes vs. females (95% CI: `r sex$lo`–`r sex$hi`, p `r sex$p`). `r if(sex$or > 1) paste0("An OR of ", sex$or, " indicates ", round((sex$or - 1)*100, 0), "% higher odds in males — a sex disparity that may reflect differences in fat distribution, health-seeking behaviour, or risk factor clustering.") else paste0("An OR of ", sex$or, " indicates ", round((1 - sex$or)*100, 0), "% lower odds in males — a finding that may reflect earlier clinical diagnosis in males due to more frequent metabolic screening.")`
+
+11. **Age 75+ vs 18–34:** The oldest group had **`r age_old$or` times the odds** of more severe diabetes vs. the youngest (95% CI: `r age_old$lo`–`r age_old$hi`, p `r age_old$p`), a `r round((age_old$or - 1)*100, 0)`% increase, reflecting cumulative metabolic ageing, declining beta-cell function, and decades of risk factor exposure. The progressive odds increase across all age bands in Table 6 confirms a monotone age gradient.
+
+---
+
+# Prediction
+
+## Classification Accuracy
+
+```{r}
+#| label: classification-accuracy
+
+pred_class <- predict(m_full, type = "class")$fit
+conf_mat   <- table(Predicted = pred_class, Observed = dat$diabetes_cat)
+accuracy   <- mean(pred_class == as.character(dat$diabetes_cat))
+acc_pct    <- round(accuracy * 100, 1)
+per_class  <- round(diag(conf_mat) / colSums(conf_mat) * 100, 1)
+
+cat(sprintf("Overall accuracy        = %.1f%%\n", acc_pct))
+cat(sprintf("Sensitivity — No Diabetes   : %.1f%%\n", per_class["No Diabetes"]))
+cat(sprintf("Sensitivity — Pre-Diabetes  : %.1f%%\n", per_class["Pre-Diabetes"]))
+cat(sprintf("Sensitivity — Diabetes      : %.1f%%\n", per_class["Diabetes"]))
+```
+
+```{r}
+#| label: confusion-matrix
+
+conf_mat %>%
+  as.data.frame() %>%
+  pivot_wider(names_from = Observed, values_from = Freq) %>%
+  kable(caption = "Table 7. Confusion Matrix — Predicted vs Observed Diabetes Status") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+**Interpretation:** The model correctly classified `r acc_pct`% of observations overall. Per-class sensitivity: No Diabetes = `r per_class["No Diabetes"]`%, Pre-Diabetes = `r per_class["Pre-Diabetes"]`%, Diabetes = `r per_class["Diabetes"]`%. `r if(per_class["Pre-Diabetes"] < 30) { paste0("Pre-Diabetes sensitivity is very low (", per_class["Pre-Diabetes"], "%), expected given only n = 150 cases flanked by two much larger categories. Most Pre-Diabetes misclassifications fall into adjacent categories.") } else if(per_class["Pre-Diabetes"] < 60) { paste0("Pre-Diabetes sensitivity of ", per_class["Pre-Diabetes"], "% is moderate, reflecting the challenge of distinguishing the middle category with n = 150.") } else { paste0("Pre-Diabetes sensitivity of ", per_class["Pre-Diabetes"], "% is reasonable given the small cell size (n = 150).") }`
+
+## Fitted Probabilities for Illustrative Profiles
+
+```{r}
+#| label: prediction-profiles
+
+new_profiles <- data.frame(
+  HighBP       = factor(c("No",  "Yes", "No",  "Yes"), levels = c("No","Yes")),
+  HighChol     = factor(c("No",  "Yes", "No",  "Yes"), levels = c("No","Yes")),
+  BMI          = c(22,   32,   22,   32),
+  Smoker       = factor(c("No",  "No",  "Yes", "Yes"), levels = c("No","Yes")),
+  PhysActivity = factor(c("Yes", "Yes", "No",  "No"),  levels = c("No","Yes")),
+  GenHlth      = factor(c("Excellent","Good","Fair","Poor"),
+                        levels = c("Excellent","Very Good","Good","Fair","Poor")),
+  Sex          = factor(c("Female","Male","Female","Male"), levels = c("Female","Male")),
+  Age          = factor(c("35-44","45-54","55-64","65-74"),
+                        levels = c("18-34","35-44","45-54","55-64","65-74","75+"))
+)
+
+pred_probs <- predict(m_full, newdata = new_profiles, type = "prob")
+pp_mat     <- round(pred_probs$fit, 3)
+
+cat(sprintf("Profile 1 — P(No Diabetes) = %.3f, P(Pre-Diabetes) = %.3f, P(Diabetes) = %.3f\n",
+            pp_mat[1,1], pp_mat[1,2], pp_mat[1,3]))
+cat(sprintf("Profile 4 — P(No Diabetes) = %.3f, P(Pre-Diabetes) = %.3f, P(Diabetes) = %.3f\n",
+            pp_mat[4,1], pp_mat[4,2], pp_mat[4,3]))
+
+cbind(data.frame(Profile = paste0("Profile ", 1:4),
+                 BMI     = new_profiles$BMI,
+                 HighBP  = new_profiles$HighBP,
+                 Age     = new_profiles$Age,
+                 GenHlth = new_profiles$GenHlth),
+      pp_mat) %>%
+  kable(col.names = c("Profile", "BMI", "High BP", "Age", "Gen. Health",
+                      "P(No Diabetes)", "P(Pre-Diabetes)", "P(Diabetes)"),
+        caption = "Table 8. Predicted Probabilities for Four Illustrative Profiles") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Interpretation:** Profile 1 (female, BMI 22, no metabolic risk, Excellent health, aged 35–44) has P(No Diabetes) = `r pp_mat[1,1]` (`r round(pp_mat[1,1]*100,1)`%). Profile 4 (male, BMI 32, high BP, high cholesterol, smoker, sedentary, Poor health, aged 65–74) has P(Diabetes) = `r pp_mat[4,3]` (`r round(pp_mat[4,3]*100,1)`%). The contrast between Profile 1 and Profile 4, a difference of `r round((pp_mat[4,3] - pp_mat[1,3])*100, 1)` percentage points in P(Diabetes), illustrates the cumulative impact of the risk factor profile. Probabilities across the three columns sum to 1.0 per row.
+
+## Manual Calculation of Predicted Probabilities
+
+Following Hosmer, Lemeshow & Sturdivant (Eq. 8.25), cumulative and category probabilities are derived step-by-step from the model coefficients, then verified against `predict()`.
+
+**Formula:**
+
+$$P(Y \leq j \mid X) = \frac{1}{1 + \exp[-(\alpha_j - X\hat{\beta})]}$$
+
+$$P(Y = j \mid X) = P(Y \leq j) - P(Y \leq j - 1)$$
+
+where $\alpha_j$ is the $j$-th threshold and $X\hat{\beta}$ is the linear predictor summed over all active predictors.
+
+**Illustration — Profile 1** (Female, BMI 22, No HighBP, No HighChol, No Smoker, PhysActivity = Yes, GenHlth = Excellent, Age = 35–44):
+
+Reference categories are: Female, No HighBP, No HighChol, No Smoker, PhysActivity = No, GenHlth = Excellent, Age = 18–34. Profile 1 differs from reference only on PhysActivity (Yes) and Age (35–44).
+
+```{r}
+#| label: manual-prediction
+
+coefs  <- coef(m_full)
+alpha1 <- coefs["No Diabetes|Pre-Diabetes"]
+alpha2 <- coefs["Pre-Diabetes|Diabetes"]
+
+cat(sprintf("Threshold 1 (No Diabetes | Pre-Diabetes)  α₁ = %.4f\n", alpha1))
+cat(sprintf("Threshold 2 (Pre-Diabetes | Diabetes)     α₂ = %.4f\n\n", alpha2))
+
+# Active predictors for Profile 1 (all others at reference = 0)
+beta_pa  <- coefs["PhysActivityYes"]
+beta_age <- coefs["Age35-44"]
+xb_p1   <- beta_pa * 1 + beta_age * 1
+
+cat(sprintf("β(PhysActivity = Yes) = %.4f\n", beta_pa))
+cat(sprintf("β(Age 35-44)          = %.4f\n", beta_age))
+cat(sprintf("Linear predictor Xβ   = %.4f + %.4f = %.4f\n\n",
+            beta_pa, beta_age, xb_p1))
+
+# Step 1: Cumulative probabilities P(Y ≤ j)
+p_leq1 <- 1 / (1 + exp(-(alpha1 - xb_p1)))
+p_leq2 <- 1 / (1 + exp(-(alpha2 - xb_p1)))
+
+cat(sprintf("P(Y ≤ No Diabetes)   = 1 / (1 + exp(-(%.4f - %.4f))) = %.4f\n",
+            alpha1, xb_p1, p_leq1))
+cat(sprintf("P(Y ≤ Pre-Diabetes)  = 1 / (1 + exp(-(%.4f - %.4f))) = %.4f\n\n",
+            alpha2, xb_p1, p_leq2))
+
+# Step 2: Category probabilities by differencing
+p1_no  <- p_leq1
+p1_pre <- p_leq2 - p_leq1
+p1_dia <- 1 - p_leq2
+
+cat(sprintf("P(No Diabetes)  = P(Y ≤ No Diabetes)                    = %.4f\n", p1_no))
+cat(sprintf("P(Pre-Diabetes) = P(Y ≤ Pre-Diabetes) - P(No Diabetes)  = %.4f\n", p1_pre))
+cat(sprintf("P(Diabetes)     = 1 - P(Y ≤ Pre-Diabetes)               = %.4f\n", p1_dia))
+cat(sprintf("Sum             = %.4f  (must equal 1.000)\n\n", p1_no + p1_pre + p1_dia))
+
+# Verification
+cat(sprintf("predict() result: P(No Diabetes) = %.4f\n", pp_mat[1, 1]))
+cat(sprintf("Manual result:    P(No Diabetes) = %.4f\n", p1_no))
+cat(sprintf("Difference:       %.6f  (rounding only)\n", abs(pp_mat[1, 1] - p1_no)))
+```
+
+**Interpretation:** The manual calculation reproduces the `predict()` output to within rounding error, confirming the model applies the proportional odds formula correctly. The linear predictor Xβ for Profile 1 is `r round(coef(m_full)["PhysActivityYes"] + coef(m_full)["Age35-44"], 4)`. PhysActivity = Yes reduces the log-odds of more severe diabetes, while Age 35–44 slightly increases it relative to the 18–34 reference. The two threshold parameters then map this single linear predictor to the three-category probability distribution.
+
+---
+
+# Discussion
+
+## Summary of Findings
+
+This analysis of `r nrow(dat)` US adults from the BRFSS 2015 survey identified several independent predictors of diabetes severity.
+
+**Metabolic risk factors** including high blood pressure (OR = `r bp$or`), high cholesterol (OR = `r chol$or`), and elevated BMI (OR = `r bmi$or` per unit) showed the strongest associations. The BMI dose-response is particularly notable: a 5-unit increase multiplies cumulative odds by `r round(bmi$or^5, 2)`.
+
+**Protective effect of physical activity:** Physical activity was associated with a `r round((1 - pa$or) * 100, 0)`% reduction in odds of more severe diabetes (OR = `r pa$or`), the largest modifiable behavioural effect in the model.
+
+**Self-rated health gradient:** A clear dose-response was observed across health levels (ORs Very Good → Poor: `r glh_vg$or` → `r glh_g$or` → `r glh_f$or` → `r glh_p$or`), confirming self-rated health as a validated proxy for cumulative metabolic burden.
+
+**Age and sex:** Older age groups progressively showed higher odds, reaching `r age_old$or`-fold for the 75+ group vs. 18–34. Male sex was associated with `r sex$dir` odds (OR = `r sex$or`).
+
+## Limitations
+
+1. **Cross-sectional design:** BRFSS is cross-sectional, and causal inference is not warranted.
+2. **Self-reported diabetes status:** Pre-diabetes is frequently undiagnosed, introducing misclassification in the middle category.
+3. **Oversampled Pre-Diabetes:** ORs reflect sample-level associations, and population-level prevalence cannot be derived from this sample.
+4. **Proportional odds assumption:** Nominal and scale tests flagged several predictors. The single OR per predictor represents a threshold-averaged effect, and a partial proportional odds model would serve as a useful sensitivity analysis.
+5. **Residual confounding:** Unmeasured confounders (family history, diet quality, medications) may bias estimates.
+
+## Conclusion
+
+The proportional odds model identified clinically meaningful, independent predictors of diabetes severity. High BMI, hypertension, dyslipidaemia, and older age were associated with higher severity, while physical activity was protective. These findings support integrated metabolic syndrome screening and lifestyle intervention programmes for at-risk adults.
+
+---
+
+# Software
+
+```{r}
+#| label: session-info
+
+sessionInfo()
+```
+
+---
+
+# References
+
+1. Hosmer, D.W., Lemeshow, S. & Sturdivant, R.X. (2013). *Applied Logistic Regression*, 3rd ed. Chapter 8. Wiley.
+2. Christensen, R.H.B. (2022). `ordinal` — Regression Models for Ordinal Data. R package. https://cran.r-project.org/package=ordinal
+3. CDC BRFSS (2015). *Behavioral Risk Factor Surveillance System Survey Data*. U.S. Department of Health and Human Services, CDC, Atlanta, Georgia.
+4. UCI Machine Learning Repository. CDC Diabetes Health Indicators Dataset. https://doi.org/10.24432/C53919
+5. Brant, R. (1990). Assessing proportionality in the proportional odds model for ordinal logistic regression. *Biometrics*, 46(4), 1171–1178.

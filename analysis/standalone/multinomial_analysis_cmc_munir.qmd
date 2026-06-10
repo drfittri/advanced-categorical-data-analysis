@@ -1,0 +1,551 @@
+---
+title: "Multinomial Logistic Regression Analysis of Contraceptive Method Choice"
+subtitle: "1987 National Indonesia Contraceptive Prevalence Survey"
+author: "Munir"
+date: today
+date-format: "DD MMMM YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Table of Contents"
+    number-sections: true
+    theme: flatly
+    code-fold: true
+    code-summary: "Show Code"
+    embed-resources: true
+    highlight-style: github
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+# Introduction
+
+Contraceptive use is a central component of reproductive health programmes in developing countries. In Indonesia, family planning decisions are shaped by a complex interplay of sociodemographic, economic, and cultural factors. Identifying which factors are associated with contraceptive method choice — and whether those factors operate differently across method types — is important for designing targeted reproductive health interventions.
+
+This analysis uses data from the **1987 National Indonesia Contraceptive Prevalence Survey** (Contraceptive Method Choice dataset, n = 1,473) to examine the determinants of contraceptive method choice among married non-pregnant women. The outcome of interest comprises three nominal categories: no use, long-term methods (IUD, sterilisation), and short-term methods (pill, condom, injection). As no natural clinical ordering exists between long-term and short-term categories, multinomial logistic regression was employed with no use as the reference group.
+
+# Methods
+
+## Data Source and Variables
+
+Data were obtained from the 1987 National Indonesia Contraceptive Prevalence Survey, available from the UCI Machine Learning Repository. The analytical sample comprised 1,473 married non-pregnant women.
+
+The **outcome variable** was contraceptive method choice, categorised as no use (reference), long-term method, or short-term method.
+
+**Table 1** describes all predictor variables included in the analysis.
+
+| Variable | Description | Type |
+|---|---|---|
+| `wife_age` | Wife's age in years | Continuous |
+| `wife_edu` | Wife's education: 1=Low, 2=Medium-low, 3=Medium-high, 4=High | Ordinal |
+| `husb_edu` | Husband's education: 1=Low, 2=Medium-low, 3=Medium-high, 4=High | Ordinal |
+| `num_children` | Number of children ever born | Continuous |
+| `wife_religion` | Religion: 0=Non-Islam, 1=Islam | Binary |
+| `wife_working` | Working: 0=Yes, 1=No | Binary |
+| `husb_occupation` | Husband's occupation: 1=Agriculture, 2=Trade, 3=Service, 4=Other | Nominal |
+| `sol_index` | Standard of living index: 1=Low to 4=High | Ordinal |
+| `media_exposure` | Media exposure: 0=Good, 1=Not good | Binary |
+
+> Note: `wife_working` carries reversed coding — 0 indicates currently working, 1 indicates not working.
+
+## Statistical Analysis
+
+Multinomial logistic regression was performed using `VGAM::vglm()` with `family = multinomial` in R. No use was set as the reference category. Simple (unadjusted) models were first fitted for wife's religion and wife's education separately. A multivariable (adjusted) model was then fitted including all seven predictors simultaneously. To improve parsimony, wife's education and the standard of living index were each dichotomised into low (levels 1–2) versus high (levels 3–4) for the final model, based on inspection of the full model coefficient pattern.
+
+Results are presented as Relative Risk Ratios (RRR) — the exponentiated log-odds — with 95% confidence intervals (CI) and p-values. A p-value < 0.05 was considered statistically significant. Predicted probabilities were derived for specific covariate profiles using the multinomial probability formula. Findings were cross-validated using `nnet::multinom()`. All analyses were conducted in R.
+
+### Data Preparation
+
+```{r}
+#| label: libraries
+
+library(here)
+library(tidyverse)
+library(gtsummary)
+library(VGAM)
+library(nnet)
+library(knitr)
+library(kableExtra)
+```
+
+```{r}
+#| label: read-data
+
+cmc <- read_csv("cmc.csv")
+```
+
+```{r}
+#| label: glimpse
+
+glimpse(cmc)
+summary(cmc)
+```
+
+```{r}
+#| label: recode-factors
+
+cmc <- cmc %>%
+  mutate(
+    cmc_method     = factor(contraceptive_method,
+                            labels = c("no_use", "long_term", "short_term")),
+    wife_religion2 = factor(wife_religion,
+                            labels = c("non_islam", "islam")),
+    wife_working2  = factor(wife_working,
+                            labels = c("yes", "no")),
+    media2         = factor(media_exposure,
+                            labels = c("good", "not_good")),
+    wife_edu2      = factor(wife_edu,
+                            labels = c("low", "med_low", "med_high", "high")),
+    husb_edu2      = factor(husb_edu,
+                            labels = c("low", "med_low", "med_high", "high")),
+    sol_index2     = factor(sol_index,
+                            labels = c("low", "med_low", "med_high", "high")),
+    husb_occ2      = factor(husb_occupation,
+                            labels = c("Agriculture", "Trade", "Service", "Other"))
+  )
+```
+
+```{r}
+#| label: recode-dichotomous
+
+cmc <- cmc %>%
+  mutate(
+    wife_edu_d  = ifelse(wife_edu  <= 2, "low", "high"),
+    sol_index_d = ifelse(sol_index <= 2, "low", "high")
+  )
+
+cmc %>% count(wife_edu, wife_edu_d)
+cmc %>% count(sol_index, sol_index_d)
+```
+
+```{r}
+#| label: set-reference
+
+cmc <- cmc %>%
+  mutate(
+    # VGAM requires no_use as the LAST level
+    cmc_vgam = fct_relevel(cmc_method, c("long_term", "short_term", "no_use")),
+    # nnet requires no_use as the FIRST level
+    cmc_nnet = relevel(cmc_method, ref = "no_use")
+  )
+
+levels(cmc$cmc_vgam)
+levels(cmc$cmc_nnet)
+```
+
+# Results
+
+## Sample Characteristics
+
+```{r}
+#| label: tbl-descriptive
+#| tbl-cap: "Table 2. Sample characteristics by contraceptive method"
+
+cmc %>%
+  mutate(
+    cmc_method     = factor(contraceptive_method,
+                            labels = c("No use", "Long-term", "Short-term")),
+    wife_religion2 = factor(wife_religion, labels = c("Non-Islam", "Islam")),
+    wife_working2  = factor(wife_working,  labels = c("Yes", "No")),
+    media2         = factor(media_exposure, labels = c("Good", "Not good")),
+    wife_edu2      = factor(wife_edu,  labels = c("Low", "Med-low", "Med-high", "High")),
+    husb_edu2      = factor(husb_edu,  labels = c("Low", "Med-low", "Med-high", "High")),
+    sol_index2     = factor(sol_index, labels = c("Low", "Med-low", "Med-high", "High")),
+    husb_occ2      = factor(husb_occupation,
+                            labels = c("Agriculture", "Trade", "Service", "Other"))
+  ) %>%
+  select(wife_age, wife_edu2, husb_edu2, num_children,
+         wife_religion2, wife_working2, husb_occ2,
+         sol_index2, media2, cmc_method) %>%
+  tbl_summary(
+    by = cmc_method,
+    statistic = list(
+      all_continuous()  ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    label = list(
+      wife_age       ~ "Wife's age (years)",
+      wife_edu2      ~ "Wife's education",
+      husb_edu2      ~ "Husband's education",
+      num_children   ~ "No. of children ever born",
+      wife_religion2 ~ "Religion",
+      wife_working2  ~ "Wife currently working",
+      husb_occ2      ~ "Husband's occupation",
+      sol_index2     ~ "Standard of living index",
+      media2         ~ "Media exposure"
+    ),
+    missing = "no"
+  ) %>%
+  add_overall() %>%
+  bold_labels() %>%
+  italicize_levels()
+```
+
+- Of the 1,473 women, **629 (42.7%)** used no contraception, **333 (22.6%)** used a long-term method, and **511 (34.7%)** used a short-term method.
+- Long-term users had the highest mean age and mean number of children; short-term users had the lowest mean age — refer to Table 2 for group means.
+- A greater proportion of long-term users had medium-high to high educational attainment compared with no-use and short-term users — refer to Table 2 for distribution by group.
+- Islamic religion was more prevalent in the no-use group than in the long-term use group — refer to Table 2 for group percentages.
+- Long-term users had a greater proportion at higher standard-of-living levels compared with no-use women — refer to Table 2 for distribution by group.
+
+## Unadjusted Analysis
+
+### Simple Model 1: Wife's Religion
+
+> A simple (unadjusted) multinomial logistic regression is fitted with wife's religion as the sole predictor. This establishes the unadjusted association between religion and contraceptive method choice before any other factors are controlled.
+
+```{r}
+#| label: model1-fit
+
+fitmlog1 <- vglm(cmc_vgam ~ wife_religion2,
+                 multinomial,
+                 data = cmc)
+
+summary(fitmlog1)
+```
+
+```{r}
+#| label: model1-rrr
+
+b_m1  <- coef(fitmlog1)
+ci_m1 <- confint(fitmlog1)
+
+b_rrr_m1    <- cbind(b_m1, exp(b_m1))
+ci_b_rrr_m1 <- cbind(ci_m1, exp(ci_m1))
+tab_m1      <- cbind(b_rrr_m1, ci_b_rrr_m1)
+
+colnames(tab_m1) <- c("b", "rrr",
+                       "lower 95% b", "upper 95% b",
+                       "lower 95% rrr", "upper 95% rrr")
+
+kable(round(tab_m1, 3),
+      caption = "Table 3. Unadjusted model — Wife's Religion: Log Odds, RRR and 95% CI") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  row_spec(3:4, background = "#f0f7ff")
+```
+
+- **Long-term vs No-use**: Islamic women had significantly lower relative odds of long-term use than non-Islamic women (RRR = 0.46, 95% CI: 0.32–0.65, p < 0.001).
+- **Short-term vs No-use**: No significant difference between religious groups (RRR = 0.87, 95% CI: 0.61–1.23, p = 0.425).
+- Religion differentially suppresses long-term — but not short-term — method uptake at the unadjusted level.
+
+### Simple Model 2: Wife's Education
+
+> Wife's education is entered as a four-level categorical predictor to examine whether there is a dose-response pattern — i.e., whether higher education is progressively associated with greater contraceptive use relative to no use.
+
+```{r}
+#| label: model2-fit
+
+fitmlog2 <- vglm(cmc_vgam ~ wife_edu2,
+                 multinomial,
+                 data = cmc)
+
+summary(fitmlog2)
+```
+
+```{r}
+#| label: model2-rrr
+
+b_m2  <- coef(fitmlog2)
+ci_m2 <- confint(fitmlog2)
+
+b_rrr_m2    <- cbind(b_m2, exp(b_m2))
+ci_b_rrr_m2 <- cbind(ci_m2, exp(ci_m2))
+tab_m2      <- cbind(b_rrr_m2, ci_b_rrr_m2)
+
+colnames(tab_m2) <- c("b", "rrr",
+                       "lower 95% b", "upper 95% b",
+                       "lower 95% rrr", "upper 95% rrr")
+
+kable(round(tab_m2, 3),
+      caption = "Table 4. Unadjusted model — Wife's Education: Log Odds, RRR and 95% CI") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+**Long-term vs No-use** (reference: low education):
+
+- Medium-low education: RRR = 2.41 (p = 0.025)
+- Medium-high education: RRR = 5.23 (p < 0.001)
+- High education: RRR = 13.54 (p < 0.001)
+
+**Short-term vs No-use** (reference: low education):
+
+- Medium-low education: RRR = 1.77 (p = 0.010)
+- Medium-high education: RRR = 2.28 (p < 0.001)
+- High education: RRR = 2.87 (p < 0.001)
+
+A clear dose-response gradient was observed for both method types. The substantially larger RRRs for long-term use indicate that education preferentially promotes uptake of long-acting methods rather than short-term alternatives.
+
+## Adjusted Analysis
+
+### Full Model
+
+> All seven predictors are entered simultaneously to obtain adjusted estimates and to examine the effect of each variable after controlling for the others. Four-level factors are retained at this stage to inspect the coefficient pattern before deciding whether to simplify.
+
+```{r}
+#| label: model3-fit
+
+fitmlog3 <- vglm(
+  cmc_vgam ~ wife_age + wife_edu2 + wife_religion2 +
+             wife_working2 + sol_index2 + num_children + media2,
+  multinomial,
+  data = cmc
+)
+
+summary(fitmlog3)
+```
+
+Inspection of the full model coefficients for wife's education and standard of living index revealed broadly monotone effects across the four levels, supporting simplification through dichotomisation (low = levels 1–2; high = levels 3–4) for the final model.
+
+### Final Model
+
+> Wife's education and standard of living index are each collapsed to two levels (low vs high) to improve parsimony while preserving the key contrast. This is the model from which final inference and predictions are drawn.
+
+```{r}
+#| label: model4-fit
+
+fitmlog4 <- vglm(
+  cmc_vgam ~ wife_age + wife_edu_d + wife_religion2 +
+             wife_working2 + sol_index_d + num_children + media2,
+  multinomial,
+  data = cmc
+)
+
+summary(fitmlog4)
+```
+
+### Estimation
+
+> The log-odds coefficients (`b`) and their exponentiated forms (Relative Risk Ratios, `rrr`) are extracted, combined with 95% confidence intervals, and displayed in a single table. RRR > 1 indicates higher relative odds of that method over no use; RRR < 1 indicates lower relative odds.
+
+```{r}
+#| label: tbl-final-results
+
+b_m4  <- coef(fitmlog4)
+ci_m4 <- confint(fitmlog4)
+
+b_rrr_m4    <- cbind(b_m4, exp(b_m4))
+ci_b_rrr_m4 <- cbind(ci_m4, exp(ci_m4))
+res_m4      <- cbind(b_rrr_m4, ci_b_rrr_m4)
+
+colnames(res_m4) <- c("b", "rrr",
+                       "lower 95% b", "upper 95% b",
+                       "lower 95% rrr", "upper 95% rrr")
+
+kable(round(res_m4, 3),
+      caption = "Table 5. Adjusted multivariable model: Log Odds, RRR and 95% CI") %>%
+  kable_styling(bootstrap_options = c("striped", "hover",
+                                      "condensed", "responsive")) %>%
+  pack_rows("Long-term vs No-use (:1)", 1, nrow(res_m4) / 2) %>%
+  pack_rows("Short-term vs No-use (:2)", nrow(res_m4) / 2 + 1, nrow(res_m4))
+```
+
+### Inference
+
+> The table above produces two sets of estimates — one per comparison equation. The following interprets each predictor's adjusted effect from Table 5.
+
+**Long-term vs No-use** (adjusted)
+
+- **Wife's age**: RRR = 0.97 (95% CI: 0.95–0.99, p = 0.003) — each additional year of age was associated with a 3% decrease in relative odds of long-term use.
+- **Wife's education** (high vs low): RRR = 4.69 (95% CI: 3.20–6.90, p < 0.001) — the strongest predictor; highly educated women had nearly five times the relative odds of long-term use.
+- **Wife's religion** (Islam vs non-Islam): RRR = 0.56 (95% CI: 0.38–0.82, p = 0.003) — Islamic women had 44% lower relative odds of long-term use.
+- **Wife's working status** (no vs yes): RRR = 0.97 (95% CI: 0.74–1.44, p = 0.848) — not statistically significant.
+- **Standard of living** (high vs low): RRR = 2.37 (95% CI: 1.57–3.57, p < 0.001) — women with higher standard of living had more than double the relative odds.
+- **Number of children**: RRR = 1.35 (95% CI: 1.25–1.46, p < 0.001) — each additional child was associated with a 35% increase in relative odds.
+- **Media exposure** (not good vs good): RRR = 0.50 (95% CI: 0.24–1.05, p = 0.068) — not statistically significant, though directionally suggestive.
+
+**Short-term vs No-use** (adjusted)
+
+- **Wife's age**: RRR = 0.90 (95% CI: 0.88–0.92, p < 0.001) — a stronger inverse effect than for long-term use; younger women preferentially chose reversible methods.
+- **Wife's education** (high vs low): RRR = 1.78 (95% CI: 1.35–2.36, p < 0.001) — significantly positive but smaller than the long-term effect (RRR 4.69 vs 1.78).
+- **Wife's religion** (Islam vs non-Islam): RRR = 0.65 (95% CI: 0.44–0.96, p = 0.028) — Islamic women had 35% lower relative odds of short-term use.
+- **Wife's working status** (no vs yes): RRR = 1.14 (p = 0.380) — not statistically significant.
+- **Standard of living** (high vs low): RRR = 1.52 (95% CI: 1.12–2.04, p = 0.006) — significant positive association.
+- **Number of children**: RRR = 1.40 (95% CI: 1.30–1.51, p < 0.001) — each additional child associated with a 40% increase in relative odds.
+- **Media exposure** (not good vs good): RRR = 0.52 (95% CI: 0.31–0.88, p = 0.015) — significant; poor media access was a barrier to short-term use, unlike for long-term use.
+
+## Prediction
+
+> Prediction is demonstrated using the simple Model 1 (wife's religion only) to keep calculations transparent. `type = "link"` returns predicted log-odds; `type = "response"` converts these to predicted probabilities on the probability scale (0 to 1).
+
+### Predicted Log-odds
+
+```{r}
+#| label: predict-logodds
+
+head(predict.vgam(fitmlog1, type = "link"))
+```
+
+- Column 1 = predicted log-odds of **long-term vs no-use**; Column 2 = predicted log-odds of **short-term vs no-use**.
+- Since the model has only one binary predictor, only two unique rows appear: one for non-Islamic women and one for Islamic women.
+- Islamic women show a more negative value in Column 1, consistent with the negative religion coefficient (b = −0.7813) estimated above.
+
+### Predicted Probabilities
+
+```{r}
+#| label: predict-prob
+
+head(predict.vgam(fitmlog1, type = "response"))
+```
+
+- Each row contains three predicted probabilities (no-use, long-term, short-term) that sum to exactly **1.0**.
+- Two distinct profiles appear, corresponding to non-Islamic and Islamic women.
+- Islamic women show a higher predicted probability of no-use and a lower predicted probability of long-term use — directly reflecting RRR = 0.46 from the model above.
+
+### Predicted Probabilities for Specific Profiles
+
+> The multinomial probability formula is applied manually to verify the model output and to demonstrate how predicted probabilities are computed from log-odds coefficients.
+
+Manual probability estimation was performed for two hypothetical women — one non-Islamic and one Islamic — using the multinomial probability formula:
+
+$$P(\text{category } j) = \frac{\exp(\eta_j)}{1 + \sum_{k=1}^{J-1} \exp(\eta_k)}$$
+
+where $\eta_j$ denotes the linear predictor for category $j$ and $\eta_J = 0$ for the reference category (no-use).
+
+```{r}
+#| label: manual-prediction
+
+int1   <- coef(fitmlog1)["(Intercept):1"]
+int2   <- coef(fitmlog1)["(Intercept):2"]
+b_rel1 <- coef(fitmlog1)["wife_religion2islam:1"]
+b_rel2 <- coef(fitmlog1)["wife_religion2islam:2"]
+
+# Non-Islamic woman (wife_religion = 0)
+logit1_nonislam <- int1 + b_rel1 * 0
+logit2_nonislam <- int2 + b_rel2 * 0
+
+denom_nonislam <- 1 + exp(logit1_nonislam) + exp(logit2_nonislam)
+
+p_noUse_ni <- 1                    / denom_nonislam
+p_long_ni  <- exp(logit1_nonislam) / denom_nonislam
+p_short_ni <- exp(logit2_nonislam) / denom_nonislam
+
+cat("── Non-Islamic woman ──────────────────────────────\n")
+cat("  Log-odds Long-term vs No-use  :", round(logit1_nonislam, 4), "\n")
+cat("  Log-odds Short-term vs No-use :", round(logit2_nonislam, 4), "\n")
+cat("  P(No use)     =", round(p_noUse_ni, 4), "\n")
+cat("  P(Long-term)  =", round(p_long_ni,  4), "\n")
+cat("  P(Short-term) =", round(p_short_ni, 4), "\n")
+cat("  Sum           =", round(p_noUse_ni + p_long_ni + p_short_ni, 4), "\n\n")
+
+# Islamic woman (wife_religion = 1)
+logit1_islam <- int1 + b_rel1 * 1
+logit2_islam <- int2 + b_rel2 * 1
+
+denom_islam <- 1 + exp(logit1_islam) + exp(logit2_islam)
+
+p_noUse_is <- 1                 / denom_islam
+p_long_is  <- exp(logit1_islam) / denom_islam
+p_short_is <- exp(logit2_islam) / denom_islam
+
+cat("── Islamic woman ──────────────────────────────────\n")
+cat("  Log-odds Long-term vs No-use  :", round(logit1_islam, 4), "\n")
+cat("  Log-odds Short-term vs No-use :", round(logit2_islam, 4), "\n")
+cat("  P(No use)     =", round(p_noUse_is, 4), "\n")
+cat("  P(Long-term)  =", round(p_long_is,  4), "\n")
+cat("  P(Short-term) =", round(p_short_is, 4), "\n")
+cat("  Sum           =", round(p_noUse_is + p_long_is + p_short_is, 4), "\n")
+```
+
+**Non-Islamic woman** (`wife_religion = 0`):
+
+- Log-odds (long-term vs no-use) = 0.0132; log-odds (short-term vs no-use) = −0.0834
+- P(no-use) = 0.3409, P(long-term) = 0.3455, P(short-term) = 0.3136
+- Probabilities are roughly equal across all three categories; sum = 1.0
+
+**Islamic woman** (`wife_religion = 1`):
+
+- Log-odds (long-term vs no-use) = 0.0132 + (−0.7813) = −0.7681; log-odds (short-term vs no-use) = −0.0834 + (−0.1425) = −0.2259
+- P(no-use) = 0.4421, P(long-term) = 0.2051, P(short-term) = 0.3528
+- Islamic women have a substantially higher predicted probability of no-use and lower long-term use; sum = 1.0
+
+Both vectors match `predict.vgam(fitmlog1, type = "response")`, confirming the model calculations.
+
+## Cross-validation with nnet::multinom
+
+Results were cross-validated using `nnet::multinom()`. As `nnet` does not report p-values in its summary output, p-values were derived from the ratio of each coefficient to its standard error under a normal approximation. Confidence intervals are returned as a three-dimensional array, with one slice per outcome category.
+
+```{r}
+#| label: nnet-simple
+
+mlog_nnet <- multinom(cmc_nnet ~ wife_religion2,
+                      data  = cmc,
+                      trace = FALSE)
+
+summary(mlog_nnet)
+```
+
+```{r}
+#| label: nnet-pvalues
+
+z_stat <- summary(mlog_nnet)$coefficients /
+          summary(mlog_nnet)$standard.errors
+
+p_val <- (1 - pnorm(abs(z_stat), 0, 1)) * 2
+
+kable(round(p_val, 4),
+      caption = "Table 6. P-values from nnet::multinom — z-test") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+```{r}
+#| label: nnet-ci
+
+ci_nnet <- confint(mlog_nnet, level = 0.95)
+
+cat("=== Long-term vs No-use ===\n")
+print(round(ci_nnet[,, "long_term"], 3))
+
+cat("\n=== Short-term vs No-use ===\n")
+print(round(ci_nnet[,, "short_term"], 3))
+```
+
+```{r}
+#| label: compare-packages
+
+mlog_nnet_full <- multinom(
+  cmc_nnet ~ wife_age + wife_edu_d + wife_religion2 +
+             wife_working2 + sol_index_d + num_children + media2,
+  data  = cmc,
+  trace = FALSE
+)
+
+cat("=== Coefficients: VGAM::vglm (fitmlog4) ===\n")
+print(round(coef(fitmlog4), 4))
+
+cat("\n=== Coefficients: nnet::multinom (mlog_nnet_full) ===\n")
+print(round(coef(mlog_nnet_full), 4))
+```
+
+Coefficient estimates from `nnet::multinom` were numerically identical to those from `VGAM::vglm`, confirming that both packages maximise the same multinomial log-likelihood. Minor floating-point differences are attributable to different numerical optimisation routines, not to substantive analytical differences.
+
+# Discussion
+
+This analysis identified several independent determinants of contraceptive method choice among 1,473 married non-pregnant Indonesian women in 1987. Key findings are summarised below.
+
+- **Wife's education** was the strongest predictor of long-term use (RRR = 4.69 vs no-use) compared to a smaller effect for short-term use (RRR = 1.78). This differential suggests that education specifically promotes access to and acceptance of long-acting methods, rather than increasing contraceptive use broadly.
+
+- **Number of children** was a consistent driver of adoption regardless of method type (long-term RRR = 1.35; short-term RRR = 1.40 per child). Similar magnitudes across both comparisons indicate that unmet family planning need — reflected in a larger family — motivates contraceptive adoption generally.
+
+- **Standard of living** was independently associated with both long-term (RRR = 2.37) and short-term use (RRR = 1.52), reflecting greater financial capacity and physical access to contraceptive services.
+
+- **Wife's religion** reduced relative odds for both long-term (RRR = 0.56) and short-term use (RRR = 0.65). The stronger suppression for long-term use is consistent with the Indonesian Islamic context in the 1980s, where religious guidance accepted birth spacing but discouraged permanent or long-acting methods.
+
+- **Wife's age** was inversely associated with both method types, with a stronger effect for short-term use (RRR = 0.90 per year) than for long-term use (RRR = 0.97 per year), indicating that younger women preferentially selected reversible methods.
+
+- **Media exposure** was a significant barrier only for short-term use (RRR = 0.52, p = 0.015), not for long-term use (p = 0.068), suggesting that mass media channels may disproportionately influence uptake of short-term methods.
+
+- **Wife's working status** was not a significant predictor for either comparison after adjustment.
+
+# References
+
+1. Musa KI. *Multinomial Logistic Regression: Course Notes for Advanced Categorical Statistics*. Universiti Sains Malaysia; 2022.
+
+2. Hosmer DW, Lemeshow S, Sturdivant RX. *Applied Logistic Regression*, 3rd ed. Wiley, 2013.
+
+3. UCI Machine Learning Repository. *Contraceptive Method Choice Data Set*. 1987 National Indonesia Contraceptive Prevalence Survey. <https://archive.ics.uci.edu/ml/datasets/Contraceptive+Method+Choice>
+
+4. Long JS, Freese J. *Regression Models for Categorical Dependent Variables Using Stata*, 3rd ed. Stata Press, 2014.
+
+5. Yee TW. *Vector Generalized Linear and Additive Models: With an Implementation in R*. Springer, 2015.

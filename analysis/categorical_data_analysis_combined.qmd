@@ -1,0 +1,2703 @@
+---
+title: "Advanced Categorical Data Analysis"
+subtitle: "A Three-Part Portfolio: Ordinal, Multinomial, and Correlated-Data Logistic Regression"
+author:
+  - name: "Nazirul Munir bin Abu Hassan"
+    affiliations:
+      - name: "Student ID: 23202537"
+  - name: "Mohd Fittri Fahmi bin Fauzi"
+    affiliations:
+      - name: "Student ID: 23202545"
+  - name: "Siti Nurhafizah binti Saharudin"
+    affiliations:
+      - name: "Student ID: 23202464"
+  - name: "Ahmad Zulfahmi bin Sha'ari"
+    affiliations:
+      - name: "Student ID: 23202546"
+date: today
+date-format: "DD MMMM YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: "On this page"
+    number-sections: true
+    number-depth: 3
+    theme: cosmo
+    code-fold: true
+    code-summary: "Show code"
+    code-tools: true
+    code-overflow: wrap
+    highlight-style: github
+    embed-resources: true
+    smooth-scroll: true
+    fig-width: 7
+    fig-height: 5
+    fig-align: center
+    df-print: kable
+    link-external-newwindow: true
+prefer-html: true
+execute:
+  warning: false
+  message: false
+  echo: true
+  freeze: auto
+---
+
+```{=html}
+<style>
+:root {
+  --brand-primary: #1b3a5b;
+  --brand-secondary: #2c7fb8;
+  --brand-accent: #d9772b;
+  --brand-ordinal: #2c7fb8;
+  --brand-multinomial: #7b4ea3;
+  --brand-correlated: #1a9988;
+  --brand-soft: #f4f7fb;
+  --brand-ink: #243140;
+}
+
+/* ---------- Global typography ---------- */
+body {
+  color: var(--brand-ink);
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+p { text-align: justify; }
+.quarto-title-block .quarto-title .title {
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--brand-primary);
+}
+.quarto-title-block .subtitle {
+  color: var(--brand-secondary);
+  font-weight: 500;
+}
+
+/* ---------- Title banner ---------- */
+#title-block-header.quarto-title-block.default {
+  background: linear-gradient(135deg, #16324f 0%, #1b3a5b 45%, #2c7fb8 100%);
+  color: #fff;
+  padding: 2.4rem 2rem 1.6rem;
+  border-radius: 14px;
+  margin-bottom: 2.2rem;
+  box-shadow: 0 10px 30px rgba(22, 50, 79, 0.25);
+}
+#title-block-header.quarto-title-block.default .title,
+#title-block-header.quarto-title-block.default .subtitle,
+#title-block-header.quarto-title-block.default .quarto-title-meta-heading,
+#title-block-header.quarto-title-block.default .quarto-title-meta-contents,
+#title-block-header.quarto-title-block.default a {
+  color: #ffffff !important;
+}
+#title-block-header.quarto-title-block.default .quarto-title-meta-heading {
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+/* ---------- Section headings ---------- */
+h1 {
+  color: var(--brand-primary);
+  font-weight: 800;
+  margin-top: 2.6rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid var(--brand-secondary);
+}
+h2 {
+  color: var(--brand-primary);
+  font-weight: 700;
+  margin-top: 2rem;
+}
+h3 { color: var(--brand-secondary); font-weight: 600; }
+h4 { color: var(--brand-ink); font-weight: 600; }
+
+/* ---------- Part banners ---------- */
+.part-banner {
+  border-radius: 14px;
+  padding: 1.5rem 1.7rem;
+  margin: 1.4rem 0 1.8rem;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+}
+.part-banner .eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.9;
+}
+.part-banner h2, .part-banner h3 { color: #fff; margin: 0.3rem 0 0.6rem; border: none; }
+.part-banner p { margin-bottom: 0; opacity: 0.96; }
+.part-ordinal     { background: linear-gradient(135deg, #2c7fb8, #1b5b8a); }
+.part-multinomial { background: linear-gradient(135deg, #7b4ea3, #563073); }
+.part-correlated  { background: linear-gradient(135deg, #1a9988, #0f6f62); }
+
+/* ---------- Overview cards ---------- */
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.overview-card {
+  background: var(--brand-soft);
+  border-left: 5px solid var(--brand-secondary);
+  border-radius: 10px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.overview-card h4 { margin-top: 0; color: var(--brand-primary); }
+.overview-card .tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+.tag-ordinal { background: var(--brand-ordinal); }
+.tag-multinomial { background: var(--brand-multinomial); }
+.tag-correlated { background: var(--brand-correlated); }
+
+/* ---------- Tables ---------- */
+table.table, .table {
+  font-size: 0.92rem;
+  border-collapse: collapse;
+}
+.table thead th, table thead tr th {
+  background: var(--brand-primary);
+  color: #fff !important;
+  border-bottom: none;
+}
+.table tbody tr:nth-child(even) { background: #f3f6fb; }
+.table tbody tr:hover { background: #e8f0fa; }
+caption, .table caption { color: var(--brand-secondary); font-weight: 600; caption-side: top; }
+
+/* ---------- Code ---------- */
+div.sourceCode {
+  border-radius: 10px;
+  border: 1px solid #e3e8ee;
+}
+.code-fold summary, details.code-fold > summary { color: var(--brand-secondary); font-weight: 600; }
+
+/* ---------- TOC ---------- */
+#TOC a.active, #toc-title { color: var(--brand-secondary) !important; }
+.sidebar nav[role="doc-toc"] ul > li > a.active {
+  border-left: 3px solid var(--brand-secondary);
+  font-weight: 600;
+}
+
+/* ---------- Reflection cards ---------- */
+.reflection-card {
+  background: #fff;
+  border: 1px solid #e3e8ee;
+  border-top: 5px solid var(--brand-accent);
+  border-radius: 12px;
+  padding: 1.3rem 1.5rem;
+  margin: 1.2rem 0;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+}
+.reflection-card .author-name { font-weight: 700; color: var(--brand-primary); font-size: 1.08rem; }
+.reflection-card .author-id { color: #6b7785; font-size: 0.85rem; margin-bottom: 0.6rem; }
+.reflection-card .placeholder {
+  color: #8a96a3;
+  font-style: italic;
+  background: #fbfafc;
+  border: 1px dashed #cfd6de;
+  border-radius: 8px;
+  padding: 1rem;
+}
+.wordcount { font-size: 0.78rem; color: #9aa5b1; text-align: right; margin-top: 0.4rem; }
+
+/* ---------- GitHub box ---------- */
+.repo-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #0d1117;
+  color: #e6edf3;
+  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+  margin: 1.2rem 0;
+}
+.repo-box a { color: #58a6ff; font-weight: 600; word-break: break-all; }
+.repo-box .gh-mark { font-size: 2rem; line-height: 1; }
+
+/* ---------- Misc ---------- */
+blockquote {
+  border-left: 4px solid var(--brand-secondary);
+  background: var(--brand-soft);
+  padding: 0.6rem 1rem;
+  color: #3c4a59;
+  border-radius: 0 8px 8px 0;
+}
+hr { border-top: 1px solid #e3e8ee; }
+
+</style>
+```
+
+# Overview and Background {#sec-overview}
+
+Binary logistic regression is the workhorse of categorical data analysis, but a great deal of real-world health data does not fit its two-outcome, independent-observation mould. Outcomes are frequently **ordered** (disease severity graded from mild to severe), **nominal with more than two unordered categories** (treatment or method choices), or **correlated** because individuals are nested within natural groupings such as clinics, households, or repeated visits. Each of these departures requires an extension of the standard logistic model, and each extension carries its own estimation machinery, assumptions, and interpretation. This portfolio brings together three complete worked analyses that, taken together, span that landscape.
+
+The document is organised as a guided progression. We begin with the **proportional odds model** for an ordered outcome, move to the **multinomial (generalised) logistic model** for an unordered outcome, and conclude with two complementary approaches to **clustered binary data** — a conditional **generalised linear mixed model (GLMM)** and a marginal **generalized estimating equations (GEE)** model. The three analyses are deliberately self-contained: each loads its own data, builds its own models, runs a full diagnostic suite, and closes with interpretation aligned to the methodological reference text used throughout, Hosmer, Lemeshow & Sturdivant's *Applied Logistic Regression* (3rd ed.). Reading them in sequence shows how a single underlying idea — modelling a transformed probability as a linear function of covariates — adapts as the structure of the outcome changes.
+
+::: {.overview-grid}
+::: {.overview-card}
+<span class="tag tag-ordinal">Part&nbsp;I</span>
+#### Ordinal Logistic Regression
+An ordered three-level diabetes status (No diabetes &rarr; Pre-diabetes &rarr; Diabetes) from the CDC BRFSS 2015 survey, modelled with the **proportional odds** cumulative link model (`ordinal::clm`). Full proportional-odds checking, pseudo-R², and manual probability reconstruction.
+:::
+::: {.overview-card}
+<span class="tag tag-multinomial">Part&nbsp;II</span>
+#### Multinomial Logistic Regression
+An unordered three-category contraceptive method choice (no use / long-term / short-term) from the 1987 Indonesia survey, modelled with **`VGAM::vglm`** and cross-validated with **`nnet::multinom`**. Relative risk ratios, dose-response screening, and manual probability checks.
+:::
+::: {.overview-card}
+<span class="tag tag-correlated">Part&nbsp;III</span>
+#### Correlated Binary Data
+Hypertension among 1,000 patients nested in 25 clinics, analysed with a conditional **GLMM** (`lme4::glmer`) and a marginal **GEE** (`gee` / `geepack`). ICC, Median Odds Ratio, quadrature sensitivity, and the Neuhaus attenuation link between the two.
+:::
+:::
+
+**Research aims at a glance.** Part I asks which sociodemographic, behavioural, and clinical factors are associated with increasing diabetes severity. Part II asks which factors shape *which* contraceptive method a woman chooses, recognising that long-term and short-term methods have no natural ordering. Part III asks how age, BMI, physical activity, and smoking relate to hypertension once the clustering of patients within clinics is properly accounted for, and contrasts the conditional and population-average answers to that question.
+
+**A note on methodology and reproducibility.** Every table, figure, and inline statistic in this report is produced directly from the underlying data by the embedded R code; nothing is hand-transcribed. Code blocks are folded by default and can be expanded with the *Show code* toggle. The complete project, including the three datasets and a reproducibility guide, is version-controlled and published on GitHub (see the [GitHub Repository](#sec-github) section). The four authors contributed jointly to the analyses, and individual reflections appear in the [Reflections](#sec-reflections) section.
+
+# Ordinal Logistic Regression {#sec-ordinal}
+
+::: {.part-banner .part-ordinal}
+<div class="eyebrow">Part I &middot; Ordered outcome</div>
+<h2>Diabetes Severity and the Proportional Odds Model</h2>
+<p>When the outcome has a natural ranking, the cumulative link (proportional odds) model uses that ordering to estimate a single set of effects across all category thresholds. Here we apply it to a three-level diabetes status from the CDC BRFSS 2015 survey.</p>
+:::
+
+## Introduction
+
+This assignment applies **ordinal logistic regression** (proportional odds model) to the CDC Behavioral Risk Factor Surveillance System (BRFSS) 2015 dataset. The dataset contains 253,680 survey responses from US adults.
+
+**Research question:** What sociodemographic, behavioural, and clinical factors are associated with severity of diabetes status (No Diabetes → Pre-diabetes → Diabetes)?
+
+**Outcome variable:** `Diabetes_012`, an ordered three-category variable:
+
+- `0` = No diabetes
+- `1` = Pre-diabetes
+- `2` = Diabetes
+
+The natural ordering makes the **proportional odds model (cumulative link model)** the appropriate analytical framework, as described by Hosmer, Lemeshow & Sturdivant (Chapter 8, *Applied Logistic Regression*, 3rd ed.).
+
+---
+
+## Data Preparation
+
+### Load Libraries
+
+```{r}
+#| label: olr-load-libraries
+
+library(tidyverse)
+library(ordinal)     # clm() — cumulative link model
+library(gtsummary)   # publication-quality tables
+library(broom)       # tidy model outputs
+library(knitr)       # table rendering
+library(kableExtra)  # table styling
+library(car)         # vif() — multicollinearity check
+```
+
+### Read and Inspect Data
+
+```{r}
+#| label: olr-read-data
+
+dat <- read_csv("diabetes_sample_2200.csv")
+glimpse(dat)
+```
+
+The working dataset is a **stratified random sample** (n = 2,200) drawn from the full CDC BRFSS 2015 dataset (n = 253,680). Stratification was performed on `Diabetes_012`:
+
+- No Diabetes: n = 1,600 (72.7%)
+- Pre-Diabetes: n = 150, oversampled (population prevalence ≈ 1.8%)
+- Diabetes: n = 450 (20.5%)
+
+Pre-diabetes was intentionally oversampled. Proportional sampling would yield fewer than 40 cases, insufficient for stable coefficient estimation. ORs from this analysis reflect sample associations and are not used to estimate population-level prevalence.
+
+### Variable Recoding
+
+```{r}
+#| label: olr-recode-variables
+
+dat <- dat %>%
+  mutate(
+    diabetes_cat = factor(Diabetes_012,
+                          levels  = c(0, 1, 2),
+                          labels  = c("No Diabetes", "Pre-Diabetes", "Diabetes"),
+                          ordered = TRUE),
+
+    HighBP               = factor(HighBP,               labels = c("No", "Yes")),
+    HighChol             = factor(HighChol,             labels = c("No", "Yes")),
+    CholCheck            = factor(CholCheck,            labels = c("No", "Yes")),
+    Smoker               = factor(Smoker,               labels = c("No", "Yes")),
+    Stroke               = factor(Stroke,               labels = c("No", "Yes")),
+    HeartDiseaseorAttack = factor(HeartDiseaseorAttack, labels = c("No", "Yes")),
+    PhysActivity         = factor(PhysActivity,         labels = c("No", "Yes")),
+    Fruits               = factor(Fruits,               labels = c("No", "Yes")),
+    Veggies              = factor(Veggies,              labels = c("No", "Yes")),
+    HvyAlcoholConsump    = factor(HvyAlcoholConsump,    labels = c("No", "Yes")),
+    AnyHealthcare        = factor(AnyHealthcare,        labels = c("No", "Yes")),
+    NoDocbcCost          = factor(NoDocbcCost,          labels = c("No", "Yes")),
+    DiffWalk             = factor(DiffWalk,             labels = c("No", "Yes")),
+    Sex                  = factor(Sex,                  labels = c("Female", "Male")),
+
+    # Unordered factor — produces interpretable category comparisons (ref = Excellent)
+    GenHlth = factor(GenHlth,
+                     levels = 1:5,
+                     labels = c("Excellent", "Very Good", "Good", "Fair", "Poor")),
+
+    # Collapsed from 13 two-to-five-year groups into 6 clinical bands
+    Age = factor(dplyr::case_match(Age,
+                   c(1, 2, 3)    ~ "18-34",
+                   c(4, 5)       ~ "35-44",
+                   c(6, 7)       ~ "45-54",
+                   c(8, 9)       ~ "55-64",
+                   c(10, 11)     ~ "65-74",
+                   c(12, 13)     ~ "75+"),
+                 levels = c("18-34", "35-44", "45-54", "55-64", "65-74", "75+")),
+
+    Education = factor(Education,
+                       levels = 1:6,
+                       labels = c("Never attended", "Elementary", "Some high school",
+                                  "High school grad", "Some college", "College grad")),
+    Income    = factor(Income,
+                       levels = 1:8,
+                       labels = c("<$10k", "$10-15k", "$15-20k", "$20-25k",
+                                  "$25-35k", "$35-50k", "$50-75k", ">$75k"))
+  )
+
+levels(dat$diabetes_cat)
+```
+
+Ordering confirmed: **No Diabetes < Pre-Diabetes < Diabetes**.
+
+---
+
+## Exploratory Data Analysis
+
+### Outcome Distribution
+
+```{r}
+#| label: olr-outcome-distribution
+#| fig-cap: "Distribution of diabetes status"
+
+dat %>%
+  count(diabetes_cat) %>%
+  mutate(pct   = round(n / sum(n) * 100, 1),
+         label = paste0(n, " (", pct, "%)")) %>%
+  ggplot(aes(x = diabetes_cat, y = n, fill = diabetes_cat)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = label), hjust = -0.1, size = 3.5) +
+  scale_fill_manual(values = c("#2ecc71", "#f39c12", "#e74c3c")) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  coord_flip() +
+  labs(title = "Distribution of Diabetes Status", x = NULL, y = "Count") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none", plot.title = element_text(face = "bold"))
+```
+
+### Descriptive Statistics by Outcome
+
+```{r}
+#| label: olr-descriptive-table
+
+dat %>%
+  select(diabetes_cat, HighBP, HighChol, BMI, Smoker,
+         PhysActivity, GenHlth, Age, Sex, Education, Income) %>%
+  tbl_summary(
+    by = diabetes_cat,
+    statistic = list(all_continuous()  ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = all_continuous() ~ 1,
+    label = list(
+      HighBP       ~ "High Blood Pressure",
+      HighChol     ~ "High Cholesterol",
+      BMI          ~ "BMI (continuous)",
+      Smoker       ~ "Ever Smoked ≥100 cigarettes",
+      PhysActivity ~ "Physical Activity (past 30 days)",
+      GenHlth      ~ "General Health (self-rated)",
+      Age          ~ "Age Group",
+      Sex          ~ "Sex",
+      Education    ~ "Education Level",
+      Income       ~ "Income Category"
+    )
+  ) %>%
+  add_overall() %>%
+  bold_labels() %>%
+  modify_caption("**Table 1. Descriptive Statistics by Diabetes Status**")
+```
+
+---
+
+## Model Building
+
+### Univariable Screening
+
+All candidate predictors are screened individually using separate proportional odds models (`clm`). Variables with **p < 0.25** (Hosmer-Lemeshow criterion) are considered for the multivariable model.
+
+```{r}
+#| label: olr-univariable-screening
+
+dat %>%
+  select(diabetes_cat,
+         HighBP, HighChol, BMI, Smoker, PhysActivity, GenHlth, Age, Sex,
+         Education, Income, CholCheck, Stroke, HeartDiseaseorAttack,
+         Fruits, Veggies, HvyAlcoholConsump, AnyHealthcare, NoDocbcCost,
+         DiffWalk) %>%
+  tbl_uvregression(
+    method       = clm,
+    y            = diabetes_cat,
+    exponentiate = TRUE,
+    hide_n       = TRUE
+  ) %>%
+  bold_p(t = 0.25) %>%
+  bold_labels() %>%
+  modify_caption("**Table 2. Univariable Screening — Unadjusted Odds Ratios (bold = p < 0.25)**")
+```
+
+**Screening decision:** Bold p-values indicate variables meeting the p < 0.25 entry criterion. From those that pass, the multivariable model includes predictors selected on clinical relevance and established BRFSS literature: **High Blood Pressure, High Cholesterol, BMI, Smoking, Physical Activity, General Health, Sex, and Age group.** Variables screened but not retained (e.g., Fruits, Veggies, HvyAlcoholConsump) did not meet the clinical relevance criterion for the primary model.
+
+### Full Adjusted Model
+
+The proportional odds model is fitted using `ordinal::clm()` with the logit link. The model simultaneously estimates two sets of parameters:
+
+- **Threshold parameters** (α₁, α₂): the two log-odds boundaries between the three ordered categories (*No Diabetes|Pre-Diabetes* and *Pre-Diabetes|Diabetes*). These are nuisance parameters that define the model's internal cut-points and are not clinically interpreted.
+- **Regression coefficients** (β): one per predictor term, shared across both thresholds under the proportional odds constraint. A positive β means the predictor is associated with higher odds of more severe diabetes, while a negative β is protective.
+
+The `summary()` output is organised into two blocks: (1) **Threshold coefficients**: the α cut-points, and (2) **Coefficients**: the β estimates with standard error, z-statistic, and p-value. Only the Coefficients block is used for clinical inference.
+
+```{r}
+#| label: olr-full-model
+
+m_full <- clm(diabetes_cat ~ HighBP + HighChol + BMI + Smoker +
+                PhysActivity + GenHlth + Sex + Age,
+              data = dat,
+              link = "logit")
+
+summary(m_full)
+```
+
+**Reading the output:** Focus on the **Coefficients** block. Positive coefficients (e.g., HighBP, BMI) indicate association with higher diabetes severity, while negative coefficients (e.g., PhysActivity) are protective. The threshold parameters (α) above the Coefficients block define internal cut-points and are not tested.
+
+---
+
+## Model Diagnostics
+
+### Multicollinearity Check
+
+`ordinal::clm()` does not have a native VIF method. A proxy linear model fitted to the same predictors provides a well-accepted VIF approximation via `car::vif()`.
+
+```{r}
+#| label: olr-vif-check
+
+mod_lm_vif <- lm(as.numeric(diabetes_cat) ~ HighBP + HighChol + BMI + Smoker +
+                   PhysActivity + GenHlth + Sex + Age,
+                 data = dat)
+
+vif_mat     <- car::vif(mod_lm_vif)
+vif_adj     <- vif_mat[, 3]
+vif_max     <- round(max(vif_adj), 2)
+vif_top     <- names(which.max(vif_adj))
+vif_concern <- vif_adj[vif_adj >= 2.0]
+vif_mat
+```
+
+**Interpretation:** `r if(length(vif_concern) == 0) { paste0("All GVIF^(1/(2·Df)) values are below 2.0. The highest adjusted VIF is ", vif_max, " for ", vif_top, ". No predictor shows problematic collinearity — coefficient estimates and standard errors are interpreted without concern.") } else { paste0(length(vif_concern), " predictor(s) exceed GVIF^(1/(2·Df)) = 2.0: ", paste(names(vif_concern), round(vif_concern, 2), sep = " = ", collapse = "; "), ". Standard errors for these predictors may be inflated — OR estimates for these predictors are interpreted with caution. The highest adjusted VIF is ", vif_max, " for ", vif_top, ".") }`
+
+### BMI Linearity Check
+
+The proportional odds model assumes a log-linear BMI–diabetes relationship. This is verified by computing the Pearson correlation between BMI quartile midpoints and empirical log-odds at both cumulative thresholds.
+
+```{r}
+#| label: olr-bmi-linearity
+#| fig-cap: "Empirical log-odds of P(Y ≥ j) across BMI quartiles."
+
+bmi_lo <- dat %>%
+  mutate(BMI_q = cut(BMI,
+                     breaks = quantile(BMI, probs = seq(0, 1, 0.25), na.rm = TRUE),
+                     include.lowest = TRUE)) %>%
+  group_by(BMI_q) %>%
+  summarise(
+    BMI_mid = mean(BMI),
+    lo_pre  = qlogis(pmin(pmax(mean(as.integer(diabetes_cat) >= 2), 1e-6), 1 - 1e-6)),
+    lo_dia  = qlogis(pmin(pmax(mean(as.integer(diabetes_cat) >= 3), 1e-6), 1 - 1e-6)),
+    .groups = "drop"
+  )
+
+bmi_cor_pre <- round(cor(bmi_lo$BMI_mid, bmi_lo$lo_pre), 3)
+bmi_cor_dia <- round(cor(bmi_lo$BMI_mid, bmi_lo$lo_dia), 3)
+
+tibble(Threshold   = c("≥ Pre-Diabetes", "≥ Diabetes"),
+       Correlation = c(bmi_cor_pre, bmi_cor_dia)) %>%
+  kable(caption = "Pearson correlation — BMI quartile midpoint vs empirical log-odds",
+        digits = 3) %>%
+  kable_styling(bootstrap_options = "striped", full_width = FALSE)
+
+bmi_lo %>%
+  pivot_longer(c(lo_pre, lo_dia), names_to = "threshold", values_to = "log_odds") %>%
+  mutate(threshold = dplyr::case_match(threshold,
+    "lo_pre" ~ "≥ Pre-Diabetes",
+    "lo_dia" ~ "≥ Diabetes")) %>%
+  ggplot(aes(x = BMI_mid, y = log_odds, colour = threshold)) +
+  geom_point(size = 3) + geom_line() +
+  labs(x = "BMI (quartile midpoint)", y = "Log-odds P(Y ≥ j)", colour = "Threshold") +
+  theme_minimal()
+```
+
+**Interpretation:** The Pearson correlation between BMI quartile midpoint and empirical log-odds was `r bmi_cor_pre` (≥ Pre-Diabetes) and `r bmi_cor_dia` (≥ Diabetes). `r if(abs(bmi_cor_pre) >= 0.95 & abs(bmi_cor_dia) >= 0.95) { "Both correlations indicate a near-perfect linear relationship, strongly supporting the log-linear assumption for BMI." } else if(abs(bmi_cor_pre) >= 0.85 & abs(bmi_cor_dia) >= 0.85) { "Both correlations are strong, broadly supporting the log-linear assumption. Minor deviation from linearity is present but unlikely to materially bias the BMI coefficient." } else { "One or both correlations fall below 0.85, indicating that the log-linear relationship between BMI and log-odds may not hold well across all BMI ranges. The BMI coefficient is interpreted with caution." }`
+
+---
+
+## Model Results
+
+```{r}
+#| label: olr-term-labels
+#| include: false
+
+term_label <- function(x) {
+  dplyr::case_match(x,
+    "HighBPYes"           ~ "High Blood Pressure (Yes vs No)",
+    "HighCholYes"         ~ "High Cholesterol (Yes vs No)",
+    "BMI"                 ~ "BMI (per 1-unit increase)",
+    "SmokerYes"           ~ "Ever Smoked (Yes vs No)",
+    "PhysActivityYes"     ~ "Physical Activity past 30 days (Yes vs No)",
+    "GenHlthVery Good"    ~ "General Health: Very Good vs Excellent",
+    "GenHlthGood"         ~ "General Health: Good vs Excellent",
+    "GenHlthFair"         ~ "General Health: Fair vs Excellent",
+    "GenHlthPoor"         ~ "General Health: Poor vs Excellent",
+    "SexMale"             ~ "Sex: Male vs Female",
+    "Age35-44"            ~ "Age: 35–44 vs 18–34",
+    "Age45-54"            ~ "Age: 45–54 vs 18–34",
+    "Age55-64"            ~ "Age: 55–64 vs 18–34",
+    "Age65-74"            ~ "Age: 65–74 vs 18–34",
+    "Age75+"              ~ "Age: 75+ vs 18–34",
+    .default = x
+  )
+}
+```
+
+### Adjusted Odds Ratios
+
+The primary results are presented as exponentiated coefficients (odds ratios). An OR > 1 indicates association with higher odds of more severe diabetes, while OR < 1 is protective. All ORs are adjusted for all other predictors in the model.
+
+```{r}
+#| label: olr-or-table
+
+or_tbl <- tidy(m_full, exponentiate = TRUE, conf.int = TRUE) %>%
+  filter(coef.type == "location")
+
+n_terms  <- nrow(or_tbl)
+n_sig    <- sum(or_tbl$p.value < 0.05, na.rm = TRUE)
+nonsig_t <- term_label(or_tbl$term[or_tbl$p.value >= 0.05])
+
+cat(sprintf("Total predictor terms : %d\n", n_terms))
+cat(sprintf("Significant (α = 0.05): %d\n", n_sig))
+if (length(nonsig_t) > 0)
+  cat(sprintf("Non-significant       : %s\n", paste(nonsig_t, collapse = "; ")))
+
+or_tbl %>%
+  mutate(term = term_label(term)) %>%
+  select(term, estimate, conf.low, conf.high, p.value) %>%
+  kable(digits = 3,
+        col.names = c("Predictor", "OR", "95% CI Lower", "95% CI Upper", "p-value"),
+        caption = "Table 3. Adjusted Odds Ratios — Ordinal Logistic Regression") %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  row_spec(0, bold = TRUE) %>%
+  footnote(general = "Reference: HighBP = No, HighChol = No, Smoker = No, PhysActivity = No, GenHlth = Excellent, Sex = Female, Age = 18–34.")
+```
+
+**Interpretation:** Of the `r n_terms` predictor terms, `r n_sig` `r ifelse(n_sig == n_terms, "(all)", paste0("of ", n_terms))` are statistically significant at α = 0.05. `r if(length(nonsig_t) > 0) paste0("Non-significant: ", paste(nonsig_t, collapse = "; "), ", retained on clinical grounds.") else ""` Detailed predictor-level interpretation follows in the Interpretation of Results section.
+
+### Threshold Coefficients
+
+```{r}
+#| label: olr-thresholds
+
+thresh_df <- tidy(m_full, conf.int = TRUE) %>% filter(coef.type == "intercept")
+t1_val    <- round(thresh_df$estimate[thresh_df$term == "No Diabetes|Pre-Diabetes"], 3)
+t2_val    <- round(thresh_df$estimate[thresh_df$term == "Pre-Diabetes|Diabetes"], 3)
+
+cat(sprintf("Threshold 1 (No Diabetes | Pre-Diabetes) = %.3f\n", t1_val))
+cat(sprintf("Threshold 2 (Pre-Diabetes | Diabetes)    = %.3f\n", t2_val))
+
+thresh_df %>%
+  select(term, estimate, std.error, statistic, p.value) %>%
+  kable(digits = 3,
+        col.names = c("Threshold", "Estimate", "SE", "z", "p-value"),
+        caption = "Table 4. Threshold Coefficients (Cut Points)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+**Interpretation:** The first threshold (`No Diabetes|Pre-Diabetes` = `r t1_val`) is the log-odds boundary where cumulative probability transitions from *No Diabetes* into the higher categories. The second threshold (`Pre-Diabetes|Diabetes` = `r t2_val`) marks the boundary between the lower two categories and *Diabetes*. Since `r t2_val` > `r t1_val`, the thresholds are correctly ordered with no reversal detected, confirming internal model consistency. These values are nuisance parameters and not interpreted clinically.
+
+---
+
+## Proportional Odds Assumption
+
+The **proportional odds assumption** (parallel regression assumption) requires that the OR for each predictor is constant across both cumulative thresholds. Two formal tests are applied using the `ordinal` package.
+
+> **Note on Brant test:** The Brant test (via `MASS::polr()`) is not applied here. With only n = 150 in the Pre-Diabetes category and multi-level predictors (GenHlth: 4 levels, Age: 6 levels), the test consistently fails to converge, as fitting separate binary logistic models at each threshold becomes computationally infeasible with sparse middle-category cells. The `nominal_test()` and `scale_test()` from the `ordinal` package are the more appropriate primary assessments for `clm()` models.
+
+### Nominal Test
+
+The nominal test compares the fitted model against a version where each predictor is allowed to have a different effect at each threshold. A significant p-value (p < 0.05) indicates the effect of that predictor varies across thresholds, which is a violation of proportional odds.
+
+```{r}
+#| label: olr-nominal-test
+
+nt_res    <- nominal_test(m_full)
+nt_pvals  <- nt_res[["Pr(>Chi)"]]
+names(nt_pvals) <- rownames(nt_res)
+nt_pvals  <- nt_pvals[names(nt_pvals) != "<none>"]   # exclude baseline row
+nt_fail   <- names(nt_pvals[!is.na(nt_pvals) & nt_pvals < 0.05])
+nt_pass   <- names(nt_pvals[!is.na(nt_pvals) & nt_pvals >= 0.05])
+nt_na     <- names(nt_pvals[is.na(nt_pvals)])
+
+cat(sprintf("Violate assumption (p < 0.05): %s\n",
+            if(length(nt_fail) > 0) paste(nt_fail, collapse = ", ") else "none"))
+cat(sprintf("Hold assumption   (p ≥ 0.05): %s\n",
+            if(length(nt_pass) > 0) paste(nt_pass, collapse = ", ") else "none"))
+cat(sprintf("Returned NA                 : %s\n",
+            if(length(nt_na) > 0) paste(nt_na, collapse = ", ") else "none"))
+nt_res
+```
+
+**Interpretation:** `r length(nt_fail)` of `r length(nt_fail) + length(nt_pass)` tested predictors showed significant deviation from proportional odds (p < 0.05): `r if(length(nt_fail) > 0) paste(nt_fail, collapse = ", ") else "none"`. `r if(length(nt_pass) > 0) paste0(length(nt_pass), " predictor(s) held the assumption: ", paste(nt_pass, collapse = ", "), ".") else ""` Any flagged predictor has an effect that differs in magnitude (though not necessarily in direction) across the two cumulative thresholds (No Diabetes|Pre-Diabetes vs. Pre-Diabetes|Diabetes). With n = `r nrow(dat)`, the test is sensitive enough to detect even trivially small deviations, so a statistically significant result will be interpreted alongside the practical magnitude of the difference.
+
+### Scale Test
+
+The scale test assesses whether the variance of the underlying latent variable differs across predictor levels (heteroscedasticity on the latent scale). A significant result suggests the spread of the latent diabetes severity distribution is not constant across that predictor's levels.
+
+```{r}
+#| label: olr-scale-test
+
+st_res    <- scale_test(m_full)
+st_pvals  <- st_res[["Pr(>Chi)"]]
+names(st_pvals) <- rownames(st_res)
+st_pvals  <- st_pvals[names(st_pvals) != "<none>"]   # exclude baseline row
+st_fail   <- names(st_pvals[!is.na(st_pvals) & st_pvals < 0.05])
+st_pass   <- names(st_pvals[!is.na(st_pvals) & st_pvals >= 0.05])
+
+cat(sprintf("Significant scale effect (p < 0.05): %s\n",
+            if(length(st_fail) > 0) paste(st_fail, collapse = ", ") else "none"))
+cat(sprintf("No scale effect          (p ≥ 0.05): %s\n",
+            if(length(st_pass) > 0) paste(st_pass, collapse = ", ") else "none"))
+st_res
+```
+
+**Interpretation:** `r length(st_fail)` predictor(s) showed a significant scale effect (p < 0.05): `r if(length(st_fail) > 0) paste(st_fail, collapse = ", ") else "none"`. `r if(length(st_pass) > 0) paste0(length(st_pass), " predictor(s) showed no scale effect: ", paste(st_pass, collapse = ", "), ".") else ""` `r if(length(st_fail) > 0) "Significant scale effects indicate heteroscedasticity on the latent diabetes severity scale for the flagged predictors, meaning the spread of the latent distribution is not constant across levels of these predictors. OR estimates for flagged predictors are interpreted with this in mind." else "The absence of significant scale effects supports the homoscedasticity assumption, with latent variance consistent across predictor levels."`
+
+---
+
+## Model Fit
+
+### Global Likelihood Ratio Test
+
+```{r}
+#| label: olr-lrt-global
+
+m_null     <- clm(diabetes_cat ~ 1, data = dat)
+lrt_global <- anova(m_null, m_full)
+lrt_chi    <- round(lrt_global[2, "LR.stat"], 1)
+lrt_df     <- lrt_global[2, "df"]
+
+cat(sprintf("Global LRT: χ²(%d) = %.1f, p < 0.001\n", lrt_df, lrt_chi))
+cat(sprintf("AIC — Null: %.0f  |  Full: %.0f  |  ΔAIC: %.0f\n",
+            AIC(m_null), AIC(m_full), AIC(m_null) - AIC(m_full)))
+lrt_global
+```
+
+**Interpretation:** The full model significantly improves fit over the null model (LRT χ²(`r lrt_df`) = `r format(lrt_chi, big.mark = ",")`, p < 0.001). AIC dropped from `r round(AIC(m_null), 0)` to `r round(AIC(m_full), 0)`, a reduction of `r round(AIC(m_null) - AIC(m_full), 0)` points, confirming the 8 predictors collectively explain substantial variation in diabetes severity beyond what the intercepts alone capture.
+
+### Pseudo R²
+
+```{r}
+#| label: olr-pseudo-r2
+
+loglik_full <- as.numeric(logLik(m_full))
+loglik_null <- as.numeric(logLik(m_null))
+n           <- nrow(dat)
+
+r2_mcf <- 1 - (loglik_full / loglik_null)
+r2_cox <- 1 - exp((2 / n) * (loglik_null - loglik_full))
+r2_nag <- r2_cox / (1 - exp((2 / n) * loglik_null))
+
+cat(sprintf("McFadden Pseudo R²   = %.4f\n", r2_mcf))
+cat(sprintf("Nagelkerke Pseudo R² = %.4f\n", r2_nag))
+```
+
+**Interpretation:** McFadden R² = `r round(r2_mcf, 3)` and Nagelkerke R² = `r round(r2_nag, 3)`. `r if(r2_mcf >= 0.40) { paste0("A McFadden R² of ", round(r2_mcf, 3), " exceeds the 0.40 threshold considered excellent for logistic models.") } else if(r2_mcf >= 0.20) { paste0("A McFadden R² of ", round(r2_mcf, 3), " falls in the 0.20–0.40 range considered good for logistic models, indicating the model explains a moderate-to-substantial proportion of variation.") } else { paste0("A McFadden R² of ", round(r2_mcf, 3), " is below 0.20, indicating the 8 predictors in the current model explain a limited proportion of variation in diabetes severity.") }` Nagelkerke R² = `r round(r2_nag, 3)` is the preferred metric for reporting in health sciences.
+
+### Variable Contribution (Drop-one LRT)
+
+```{r}
+#| label: olr-drop-one
+
+d1_res    <- drop1(m_full, test = "Chi")
+d1_pred   <- d1_res[rownames(d1_res) != "<none>", ]
+d1_pcol   <- names(d1_pred)[ncol(d1_pred)]
+top3      <- paste(term_label(rownames(d1_pred)[order(d1_pred$LRT, decreasing = TRUE)[1:3]]),
+                   collapse = ", ")
+d1_nonsig <- rownames(d1_pred)[!is.na(d1_pred[[d1_pcol]]) & d1_pred[[d1_pcol]] > 0.05]
+n_nonsig  <- length(d1_nonsig)
+
+cat(sprintf("Top 3 contributors: %s\n", top3))
+cat(sprintf("Non-significant predictors (p > 0.05): %s\n",
+            if(n_nonsig > 0) paste(term_label(d1_nonsig), collapse = "; ") else "none"))
+d1_res
+```
+
+**Interpretation:** The three largest independent contributions are from **`r top3`**. `r if(n_nonsig == 0) { paste0("All ", nrow(d1_pred), " predictors contributed significantly (p < 0.05) beyond the others, and none are redundant in the adjusted model.") } else { paste0(n_nonsig, " predictor(s) did not reach significance in the drop-one test (p > 0.05): ", paste(term_label(d1_nonsig), collapse = ", "), ". Their independent contribution beyond the remaining predictors is marginal in this sample.") }`
+
+---
+
+## Interaction Analysis
+
+One a priori biologically plausible interaction is tested: **`HighBP × BMI`**. Hypertension and obesity share the insulin-resistance pathway, and the BMI slope on diabetes odds may differ between those with and without high blood pressure.
+
+```{r}
+#| label: olr-interaction-model
+
+m_int   <- clm(diabetes_cat ~ HighBP * BMI + HighChol + Smoker +
+                 PhysActivity + GenHlth + Sex + Age,
+               data = dat, link = "logit")
+
+int_lrt <- anova(m_full, m_int)
+int_chi <- round(int_lrt[2, "LR.stat"], 2)
+int_df  <- int_lrt[2, "df"]
+int_p   <- int_lrt[2, "Pr(>Chisq)"]
+
+cat(sprintf("LRT (HighBP × BMI interaction): χ²(%d) = %.2f, p = %.3f\n",
+            int_df, int_chi, int_p))
+int_lrt
+```
+
+```{r}
+#| label: olr-interaction-results
+
+int_or_tbl <- tidy(m_int, exponentiate = TRUE, conf.int = TRUE) %>%
+  filter(coef.type == "location", str_detect(term, ":"))
+
+int_or_val <- round(int_or_tbl$estimate[1], 3)
+int_ci_lo  <- round(int_or_tbl$conf.low[1], 3)
+int_ci_hi  <- round(int_or_tbl$conf.high[1], 3)
+int_or_p   <- int_or_tbl$p.value[1]
+
+cat(sprintf("HighBP × BMI interaction OR = %.3f (95%% CI: %.3f–%.3f, p = %.3f)\n",
+            int_or_val, int_ci_lo, int_ci_hi, int_or_p))
+
+int_or_tbl %>%
+  select(term, estimate, conf.low, conf.high, p.value) %>%
+  kable(caption = "Interaction term — OR and 95% CI", digits = 3,
+        col.names = c("Term", "OR", "95% CI Lower", "95% CI Upper", "p-value")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Interpretation:** The LRT shows that adding the `HighBP × BMI` interaction `r ifelse(int_p < 0.05, "significantly improves", "does not significantly improve")` model fit (χ²(`r int_df`) = `r int_chi`, p = `r round(int_p, 3)`). `r if(int_p < 0.05) { paste0("The interaction OR of ", int_or_val, " (95% CI: ", int_ci_lo, "–", int_ci_hi, ", p = ", round(int_or_p, 3), ") indicates that among those with high blood pressure, each 1-unit BMI increase carries ", int_or_val, " times the per-unit BMI odds compared to those without high blood pressure, indicating a ", ifelse(int_or_val > 1, "stronger", "weaker"), " BMI gradient in the hypertensive group. The interaction model is preferred.") } else { "The main-effects model is preferred for parsimony, as the per-unit BMI association does not meaningfully differ by hypertension status in this sample." }`
+
+---
+
+## Model Comparison
+
+```{r}
+#| label: olr-model-comparison
+
+m_reduced <- clm(diabetes_cat ~ HighBP + HighChol + BMI + GenHlth + Sex + Age,
+                 data = dat, link = "logit")
+
+tibble(
+  Model  = c("Null (intercept only)",
+             "Reduced (−Smoker, −PhysActivity)",
+             "Full model"),
+  logLik = c(as.numeric(logLik(m_null)),
+             as.numeric(logLik(m_reduced)),
+             as.numeric(logLik(m_full))),
+  df     = c(attr(logLik(m_null),    "df"),
+             attr(logLik(m_reduced), "df"),
+             attr(logLik(m_full),    "df")),
+  AIC    = c(AIC(m_null), AIC(m_reduced), AIC(m_full)),
+  BIC    = c(BIC(m_null), BIC(m_reduced), BIC(m_full))
+) %>%
+  arrange(AIC) %>%
+  kable(digits = 1, caption = "Table 5. Model Comparison — log-likelihood, df, AIC, and BIC") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r}
+#| label: olr-lrt-reduced
+
+lrt_red      <- anova(m_reduced, m_full)
+lrt_red_p    <- lrt_red[2, "Pr(>Chisq)"]
+lrt_red_pfmt <- ifelse(lrt_red_p < 0.001, "< 0.001", sprintf("= %.3f", lrt_red_p))
+full_best    <- AIC(m_full) < AIC(m_reduced)
+delta_aic    <- round(AIC(m_reduced) - AIC(m_full), 1)
+delta_bic    <- round(BIC(m_reduced) - BIC(m_full), 1)
+
+cat(sprintf("LRT p-value (Smoker + PhysActivity jointly): p %s\n", lrt_red_pfmt))
+lrt_red
+```
+
+**Interpretation:** `r if(full_best) { paste0("The full model has the lowest AIC (", round(AIC(m_full),1), ") and BIC (", round(BIC(m_full),1), "). Compared to the reduced model, ΔAIC = ", delta_aic, " and ΔBIC = ", delta_bic, ".") } else { paste0("The reduced model (AIC = ", round(AIC(m_reduced),1), ", BIC = ", round(BIC(m_reduced),1), ") outperforms the full model (AIC = ", round(AIC(m_full),1), ", BIC = ", round(BIC(m_full),1), ", ΔAIC = ", abs(delta_aic), " favouring reduced). Adding Smoker and PhysActivity does not recover the 2-parameter AIC penalty.") }` The LRT `r if(lrt_red_p < 0.05) { paste0("confirms Smoker and PhysActivity jointly improve fit (p ", lrt_red_pfmt, "), and both are retained.") } else { paste0("shows Smoker and PhysActivity do **not** jointly improve fit beyond the remaining predictors (p ", lrt_red_pfmt, "). The reduced model is statistically preferred. Both predictors are retained here on clinical grounds (established diabetes risk factors), but their marginal statistical contribution in this sample should be noted as a limitation.") }`
+
+---
+
+## Interpretation of Results
+
+### Proportional Odds Interpretation Framework
+
+In the proportional odds model, the **OR for each predictor is constant across both cut points**:
+
+- The odds of *Pre-Diabetes or Diabetes* vs. *No Diabetes*, **and**
+- The odds of *Diabetes* vs. *No Diabetes or Pre-Diabetes*
+
+An OR > 1 indicates greater probability of a more severe diabetes category.
+
+### Summary Table
+
+```{r}
+#| label: olr-or-results
+
+or_results <- tidy(m_full, exponentiate = TRUE, conf.int = TRUE) %>%
+  filter(coef.type == "location")
+
+or_results %>%
+  mutate(term      = term_label(term),
+         sig       = ifelse(p.value < 0.05, "Yes", "No"),
+         direction = ifelse(estimate > 1, "Higher risk", "Lower risk")) %>%
+  select(term, estimate, conf.low, conf.high, p.value, sig, direction) %>%
+  kable(digits = 3,
+        col.names = c("Predictor", "OR", "CI Lower", "CI Upper", "p-value",
+                      "Significant?", "Direction"),
+        caption = "Table 6. Adjusted Odds Ratios — Direction and Significance") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r}
+#| label: olr-or-extract
+#| include: false
+
+get_or <- function(trm) {
+  x <- filter(or_results, term == trm)
+  list(or  = round(x$estimate, 2),
+       lo  = round(x$conf.low, 2),
+       hi  = round(x$conf.high, 2),
+       p   = ifelse(x$p.value < 0.001, "< 0.001", sprintf("= %.3f", x$p.value)),
+       dir = ifelse(x$estimate > 1, "higher", "lower"))
+}
+
+bp      <- get_or("HighBPYes")
+chol    <- get_or("HighCholYes")
+bmi     <- get_or("BMI")
+smoke   <- get_or("SmokerYes")
+pa      <- get_or("PhysActivityYes")
+sex     <- get_or("SexMale")
+glh_vg  <- get_or("GenHlthVery Good")
+glh_g   <- get_or("GenHlthGood")
+glh_f   <- get_or("GenHlthFair")
+glh_p   <- get_or("GenHlthPoor")
+age_old <- get_or("Age75+")
+```
+
+> The OR values cited below are drawn from Table 6 above. All values are adjusted for all other predictors in the model.
+
+### Predictor-by-Predictor Interpretation
+
+1. **High Blood Pressure:** Respondents with high blood pressure had **`r bp$or` times higher odds** (95% CI: `r bp$lo`–`r bp$hi`, p `r bp$p`) of more severe diabetes compared to those without, consistent with the shared insulin resistance pathway linking hypertension and diabetes.
+
+2. **High Cholesterol:** High cholesterol was associated with **`r chol$or` times the odds** (95% CI: `r chol$lo`–`r chol$hi`, p `r chol$p`) of a higher diabetes severity category, reflecting dyslipidaemia as a core metabolic syndrome component.
+
+3. **BMI:** Each 1-unit increase in BMI multiplied the odds of more severe diabetes by **`r bmi$or`** (95% CI: `r bmi$lo`–`r bmi$hi`, p `r bmi$p`). A 5-unit increase (e.g., BMI 25 → 30) multiplies the odds by `r round(bmi$or^5, 2)`, representing a `r round((bmi$or^5 - 1) * 100, 0)`% increase, making it the strongest continuous predictor in the model.
+
+4. **Smoking:** Ever-smoking (≥100 cigarettes lifetime) was associated with **`r smoke$or` times the odds** of more severe diabetes (95% CI: `r smoke$lo`–`r smoke$hi`, p `r smoke$p`). `r if(smoke$or > 1) paste0("An OR of ", smoke$or, " indicates a ", round((smoke$or - 1)*100, 0), "% increase in odds, consistent with evidence linking nicotine to beta-cell dysfunction and insulin resistance.") else paste0("An OR of ", smoke$or, " is unexpected (OR < 1). Potential explanations include survivor bias or residual confounding.")`
+
+5. **Physical Activity:** Respondents active in the past 30 days had **`r pa$or` times the odds** of more severe diabetes (95% CI: `r pa$lo`–`r pa$hi`, p `r pa$p`), representing a **`r round((1 - pa$or) * 100, 0)`% reduction** in odds vs. inactive respondents and the largest modifiable behavioural effect in the model.
+
+6. **General Health: Very Good vs Excellent:** OR = **`r glh_vg$or`** (95% CI: `r glh_vg$lo`–`r glh_vg$hi`, p `r glh_vg$p`). A one-step decline from Excellent to Very Good is associated with `r round(abs(glh_vg$or - 1)*100, 0)`% `r glh_vg$dir` odds.
+
+7. **General Health: Good vs Excellent:** OR = **`r glh_g$or`** (95% CI: `r glh_g$lo`–`r glh_g$hi`, p `r glh_g$p`), `r round(abs(glh_g$or - 1)*100, 0)`% `r glh_g$dir` odds vs. Excellent.
+
+8. **General Health: Fair vs Excellent:** OR = **`r glh_f$or`** (95% CI: `r glh_f$lo`–`r glh_f$hi`, p `r glh_f$p`), `r round(abs(glh_f$or - 1)*100, 0)`% `r glh_f$dir` odds vs. Excellent.
+
+9. **General Health: Poor vs Excellent:** OR = **`r glh_p$or`** (95% CI: `r glh_p$lo`–`r glh_p$hi`, p `r glh_p$p`). The monotone OR gradient across health levels (Very Good → Good → Fair → Poor: `r glh_vg$or` → `r glh_g$or` → `r glh_f$or` → `r glh_p$or`) confirms a clear dose-response pattern, consistent with self-rated health as a validated proxy for metabolic burden.
+
+10. **Sex:** Male respondents had **`r sex$or` times the odds** of more severe diabetes vs. females (95% CI: `r sex$lo`–`r sex$hi`, p `r sex$p`). `r if(sex$or > 1) paste0("An OR of ", sex$or, " indicates ", round((sex$or - 1)*100, 0), "% higher odds in males — a sex disparity that may reflect differences in fat distribution, health-seeking behaviour, or risk factor clustering.") else paste0("An OR of ", sex$or, " indicates ", round((1 - sex$or)*100, 0), "% lower odds in males — a finding that may reflect earlier clinical diagnosis in males due to more frequent metabolic screening.")`
+
+11. **Age 75+ vs 18–34:** The oldest group had **`r age_old$or` times the odds** of more severe diabetes vs. the youngest (95% CI: `r age_old$lo`–`r age_old$hi`, p `r age_old$p`), a `r round((age_old$or - 1)*100, 0)`% increase, reflecting cumulative metabolic ageing, declining beta-cell function, and decades of risk factor exposure. The progressive odds increase across all age bands in Table 6 confirms a monotone age gradient.
+
+---
+
+## Prediction
+
+### Classification Accuracy
+
+```{r}
+#| label: olr-classification-accuracy
+
+pred_class <- predict(m_full, type = "class")$fit
+conf_mat   <- table(Predicted = pred_class, Observed = dat$diabetes_cat)
+accuracy   <- mean(pred_class == as.character(dat$diabetes_cat))
+acc_pct    <- round(accuracy * 100, 1)
+per_class  <- round(diag(conf_mat) / colSums(conf_mat) * 100, 1)
+
+cat(sprintf("Overall accuracy        = %.1f%%\n", acc_pct))
+cat(sprintf("Sensitivity — No Diabetes   : %.1f%%\n", per_class["No Diabetes"]))
+cat(sprintf("Sensitivity — Pre-Diabetes  : %.1f%%\n", per_class["Pre-Diabetes"]))
+cat(sprintf("Sensitivity — Diabetes      : %.1f%%\n", per_class["Diabetes"]))
+```
+
+```{r}
+#| label: olr-confusion-matrix
+
+conf_mat %>%
+  as.data.frame() %>%
+  pivot_wider(names_from = Observed, values_from = Freq) %>%
+  kable(caption = "Table 7. Confusion Matrix — Predicted vs Observed Diabetes Status") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+**Interpretation:** The model correctly classified `r acc_pct`% of observations overall. Per-class sensitivity: No Diabetes = `r per_class["No Diabetes"]`%, Pre-Diabetes = `r per_class["Pre-Diabetes"]`%, Diabetes = `r per_class["Diabetes"]`%. `r if(per_class["Pre-Diabetes"] < 30) { paste0("Pre-Diabetes sensitivity is very low (", per_class["Pre-Diabetes"], "%), expected given only n = 150 cases flanked by two much larger categories. Most Pre-Diabetes misclassifications fall into adjacent categories.") } else if(per_class["Pre-Diabetes"] < 60) { paste0("Pre-Diabetes sensitivity of ", per_class["Pre-Diabetes"], "% is moderate, reflecting the challenge of distinguishing the middle category with n = 150.") } else { paste0("Pre-Diabetes sensitivity of ", per_class["Pre-Diabetes"], "% is reasonable given the small cell size (n = 150).") }`
+
+### Fitted Probabilities for Illustrative Profiles
+
+```{r}
+#| label: olr-prediction-profiles
+
+new_profiles <- data.frame(
+  HighBP       = factor(c("No",  "Yes", "No",  "Yes"), levels = c("No","Yes")),
+  HighChol     = factor(c("No",  "Yes", "No",  "Yes"), levels = c("No","Yes")),
+  BMI          = c(22,   32,   22,   32),
+  Smoker       = factor(c("No",  "No",  "Yes", "Yes"), levels = c("No","Yes")),
+  PhysActivity = factor(c("Yes", "Yes", "No",  "No"),  levels = c("No","Yes")),
+  GenHlth      = factor(c("Excellent","Good","Fair","Poor"),
+                        levels = c("Excellent","Very Good","Good","Fair","Poor")),
+  Sex          = factor(c("Female","Male","Female","Male"), levels = c("Female","Male")),
+  Age          = factor(c("35-44","45-54","55-64","65-74"),
+                        levels = c("18-34","35-44","45-54","55-64","65-74","75+"))
+)
+
+pred_probs <- predict(m_full, newdata = new_profiles, type = "prob")
+pp_mat     <- round(pred_probs$fit, 3)
+
+cat(sprintf("Profile 1 — P(No Diabetes) = %.3f, P(Pre-Diabetes) = %.3f, P(Diabetes) = %.3f\n",
+            pp_mat[1,1], pp_mat[1,2], pp_mat[1,3]))
+cat(sprintf("Profile 4 — P(No Diabetes) = %.3f, P(Pre-Diabetes) = %.3f, P(Diabetes) = %.3f\n",
+            pp_mat[4,1], pp_mat[4,2], pp_mat[4,3]))
+
+cbind(data.frame(Profile = paste0("Profile ", 1:4),
+                 BMI     = new_profiles$BMI,
+                 HighBP  = new_profiles$HighBP,
+                 Age     = new_profiles$Age,
+                 GenHlth = new_profiles$GenHlth),
+      pp_mat) %>%
+  kable(col.names = c("Profile", "BMI", "High BP", "Age", "Gen. Health",
+                      "P(No Diabetes)", "P(Pre-Diabetes)", "P(Diabetes)"),
+        caption = "Table 8. Predicted Probabilities for Four Illustrative Profiles") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Interpretation:** Profile 1 (female, BMI 22, no metabolic risk, Excellent health, aged 35–44) has P(No Diabetes) = `r pp_mat[1,1]` (`r round(pp_mat[1,1]*100,1)`%). Profile 4 (male, BMI 32, high BP, high cholesterol, smoker, sedentary, Poor health, aged 65–74) has P(Diabetes) = `r pp_mat[4,3]` (`r round(pp_mat[4,3]*100,1)`%). The contrast between Profile 1 and Profile 4, a difference of `r round((pp_mat[4,3] - pp_mat[1,3])*100, 1)` percentage points in P(Diabetes), illustrates the cumulative impact of the risk factor profile. Probabilities across the three columns sum to 1.0 per row.
+
+### Manual Calculation of Predicted Probabilities
+
+Following Hosmer, Lemeshow & Sturdivant (Eq. 8.25), cumulative and category probabilities are derived step-by-step from the model coefficients, then verified against `predict()`.
+
+**Formula:**
+
+$$P(Y \leq j \mid X) = \frac{1}{1 + \exp[-(\alpha_j - X\hat{\beta})]}$$
+
+$$P(Y = j \mid X) = P(Y \leq j) - P(Y \leq j - 1)$$
+
+where $\alpha_j$ is the $j$-th threshold and $X\hat{\beta}$ is the linear predictor summed over all active predictors.
+
+**Illustration — Profile 1** (Female, BMI 22, No HighBP, No HighChol, No Smoker, PhysActivity = Yes, GenHlth = Excellent, Age = 35–44):
+
+Reference categories are: Female, No HighBP, No HighChol, No Smoker, PhysActivity = No, GenHlth = Excellent, Age = 18–34. Profile 1 differs from reference only on PhysActivity (Yes) and Age (35–44).
+
+```{r}
+#| label: olr-manual-prediction
+
+coefs  <- coef(m_full)
+alpha1 <- coefs["No Diabetes|Pre-Diabetes"]
+alpha2 <- coefs["Pre-Diabetes|Diabetes"]
+
+cat(sprintf("Threshold 1 (No Diabetes | Pre-Diabetes)  α₁ = %.4f\n", alpha1))
+cat(sprintf("Threshold 2 (Pre-Diabetes | Diabetes)     α₂ = %.4f\n\n", alpha2))
+
+# Active predictors for Profile 1 (all others at reference = 0)
+beta_pa  <- coefs["PhysActivityYes"]
+beta_age <- coefs["Age35-44"]
+xb_p1   <- beta_pa * 1 + beta_age * 1
+
+cat(sprintf("β(PhysActivity = Yes) = %.4f\n", beta_pa))
+cat(sprintf("β(Age 35-44)          = %.4f\n", beta_age))
+cat(sprintf("Linear predictor Xβ   = %.4f + %.4f = %.4f\n\n",
+            beta_pa, beta_age, xb_p1))
+
+# Step 1: Cumulative probabilities P(Y ≤ j)
+p_leq1 <- 1 / (1 + exp(-(alpha1 - xb_p1)))
+p_leq2 <- 1 / (1 + exp(-(alpha2 - xb_p1)))
+
+cat(sprintf("P(Y ≤ No Diabetes)   = 1 / (1 + exp(-(%.4f - %.4f))) = %.4f\n",
+            alpha1, xb_p1, p_leq1))
+cat(sprintf("P(Y ≤ Pre-Diabetes)  = 1 / (1 + exp(-(%.4f - %.4f))) = %.4f\n\n",
+            alpha2, xb_p1, p_leq2))
+
+# Step 2: Category probabilities by differencing
+p1_no  <- p_leq1
+p1_pre <- p_leq2 - p_leq1
+p1_dia <- 1 - p_leq2
+
+cat(sprintf("P(No Diabetes)  = P(Y ≤ No Diabetes)                    = %.4f\n", p1_no))
+cat(sprintf("P(Pre-Diabetes) = P(Y ≤ Pre-Diabetes) - P(No Diabetes)  = %.4f\n", p1_pre))
+cat(sprintf("P(Diabetes)     = 1 - P(Y ≤ Pre-Diabetes)               = %.4f\n", p1_dia))
+cat(sprintf("Sum             = %.4f  (must equal 1.000)\n\n", p1_no + p1_pre + p1_dia))
+
+# Verification
+cat(sprintf("predict() result: P(No Diabetes) = %.4f\n", pp_mat[1, 1]))
+cat(sprintf("Manual result:    P(No Diabetes) = %.4f\n", p1_no))
+cat(sprintf("Difference:       %.6f  (rounding only)\n", abs(pp_mat[1, 1] - p1_no)))
+```
+
+**Interpretation:** The manual calculation reproduces the `predict()` output to within rounding error, confirming the model applies the proportional odds formula correctly. The linear predictor Xβ for Profile 1 is `r round(coef(m_full)["PhysActivityYes"] + coef(m_full)["Age35-44"], 4)`. PhysActivity = Yes reduces the log-odds of more severe diabetes, while Age 35–44 slightly increases it relative to the 18–34 reference. The two threshold parameters then map this single linear predictor to the three-category probability distribution.
+
+---
+
+## Discussion
+
+### Summary of Findings
+
+This analysis of `r nrow(dat)` US adults from the BRFSS 2015 survey identified several independent predictors of diabetes severity.
+
+**Metabolic risk factors** including high blood pressure (OR = `r bp$or`), high cholesterol (OR = `r chol$or`), and elevated BMI (OR = `r bmi$or` per unit) showed the strongest associations. The BMI dose-response is particularly notable: a 5-unit increase multiplies cumulative odds by `r round(bmi$or^5, 2)`.
+
+**Protective effect of physical activity:** Physical activity was associated with a `r round((1 - pa$or) * 100, 0)`% reduction in odds of more severe diabetes (OR = `r pa$or`), the largest modifiable behavioural effect in the model.
+
+**Self-rated health gradient:** A clear dose-response was observed across health levels (ORs Very Good → Poor: `r glh_vg$or` → `r glh_g$or` → `r glh_f$or` → `r glh_p$or`), confirming self-rated health as a validated proxy for cumulative metabolic burden.
+
+**Age and sex:** Older age groups progressively showed higher odds, reaching `r age_old$or`-fold for the 75+ group vs. 18–34. Male sex was associated with `r sex$dir` odds (OR = `r sex$or`).
+
+### Limitations
+
+1. **Cross-sectional design:** BRFSS is cross-sectional, and causal inference is not warranted.
+2. **Self-reported diabetes status:** Pre-diabetes is frequently undiagnosed, introducing misclassification in the middle category.
+3. **Oversampled Pre-Diabetes:** ORs reflect sample-level associations, and population-level prevalence cannot be derived from this sample.
+4. **Proportional odds assumption:** Nominal and scale tests flagged several predictors. The single OR per predictor represents a threshold-averaged effect, and a partial proportional odds model would serve as a useful sensitivity analysis.
+5. **Residual confounding:** Unmeasured confounders (family history, diet quality, medications) may bias estimates.
+
+### Conclusion
+
+The proportional odds model identified clinically meaningful, independent predictors of diabetes severity. High BMI, hypertension, dyslipidaemia, and older age were associated with higher severity, while physical activity was protective. These findings support integrated metabolic syndrome screening and lifestyle intervention programmes for at-risk adults.
+
+---
+
+## Software
+
+```{r}
+#| label: olr-session-info
+
+sessionInfo()
+```
+
+---
+
+# Multinomial Logistic Regression {#sec-multinomial}
+
+::: {.part-banner .part-multinomial}
+<div class="eyebrow">Part II &middot; Unordered outcome</div>
+<h2>Contraceptive Method Choice and the Multinomial Model</h2>
+<p>When outcome categories have no inherent ordering, the multinomial logistic model estimates a separate set of log-odds for each category against a common reference. Here we model the choice between no use, long-term, and short-term contraception in the 1987 Indonesia survey.</p>
+:::
+
+## Introduction
+
+Contraceptive use is a central component of reproductive health programmes in developing countries. In Indonesia, family planning decisions are shaped by a complex interplay of sociodemographic, economic, and cultural factors. Identifying which factors are associated with contraceptive method choice — and whether those factors operate differently across method types — is important for designing targeted reproductive health interventions.
+
+This analysis uses data from the **1987 National Indonesia Contraceptive Prevalence Survey** (Contraceptive Method Choice dataset, n = 1,473) to examine the determinants of contraceptive method choice among married non-pregnant women. The outcome of interest comprises three nominal categories: no use, long-term methods (IUD, sterilisation), and short-term methods (pill, condom, injection). As no natural clinical ordering exists between long-term and short-term categories, multinomial logistic regression was employed with no use as the reference group.
+
+## Methods
+
+### Data Source and Variables
+
+Data were obtained from the 1987 National Indonesia Contraceptive Prevalence Survey, available from the UCI Machine Learning Repository. The analytical sample comprised 1,473 married non-pregnant women.
+
+The **outcome variable** was contraceptive method choice, categorised as no use (reference), long-term method, or short-term method.
+
+**Table 1** describes all predictor variables included in the analysis.
+
+| Variable | Description | Type |
+|---|---|---|
+| `wife_age` | Wife's age in years | Continuous |
+| `wife_edu` | Wife's education: 1=Low, 2=Medium-low, 3=Medium-high, 4=High | Ordinal |
+| `husb_edu` | Husband's education: 1=Low, 2=Medium-low, 3=Medium-high, 4=High | Ordinal |
+| `num_children` | Number of children ever born | Continuous |
+| `wife_religion` | Religion: 0=Non-Islam, 1=Islam | Binary |
+| `wife_working` | Working: 0=Yes, 1=No | Binary |
+| `husb_occupation` | Husband's occupation: 1=Agriculture, 2=Trade, 3=Service, 4=Other | Nominal |
+| `sol_index` | Standard of living index: 1=Low to 4=High | Ordinal |
+| `media_exposure` | Media exposure: 0=Good, 1=Not good | Binary |
+
+> Note: `wife_working` carries reversed coding — 0 indicates currently working, 1 indicates not working.
+
+### Statistical Analysis
+
+Multinomial logistic regression was performed using `VGAM::vglm()` with `family = multinomial` in R. No use was set as the reference category. Simple (unadjusted) models were first fitted for wife's religion and wife's education separately. A multivariable (adjusted) model was then fitted including all seven predictors simultaneously. To improve parsimony, wife's education and the standard of living index were each dichotomised into low (levels 1–2) versus high (levels 3–4) for the final model, based on inspection of the full model coefficient pattern.
+
+Results are presented as Relative Risk Ratios (RRR) — the exponentiated log-odds — with 95% confidence intervals (CI) and p-values. A p-value < 0.05 was considered statistically significant. Predicted probabilities were derived for specific covariate profiles using the multinomial probability formula. Findings were cross-validated using `nnet::multinom()`. All analyses were conducted in R.
+
+#### Data Preparation
+
+```{r}
+#| label: mlr-libraries
+
+library(here)
+library(tidyverse)
+library(gtsummary)
+library(VGAM)
+library(nnet)
+library(knitr)
+library(kableExtra)
+```
+
+```{r}
+#| label: mlr-read-data
+
+cmc <- read_csv("cmc.csv")
+```
+
+```{r}
+#| label: mlr-glimpse
+
+glimpse(cmc)
+summary(cmc)
+```
+
+```{r}
+#| label: mlr-recode-factors
+
+cmc <- cmc %>%
+  mutate(
+    cmc_method     = factor(contraceptive_method,
+                            labels = c("no_use", "long_term", "short_term")),
+    wife_religion2 = factor(wife_religion,
+                            labels = c("non_islam", "islam")),
+    wife_working2  = factor(wife_working,
+                            labels = c("yes", "no")),
+    media2         = factor(media_exposure,
+                            labels = c("good", "not_good")),
+    wife_edu2      = factor(wife_edu,
+                            labels = c("low", "med_low", "med_high", "high")),
+    husb_edu2      = factor(husb_edu,
+                            labels = c("low", "med_low", "med_high", "high")),
+    sol_index2     = factor(sol_index,
+                            labels = c("low", "med_low", "med_high", "high")),
+    husb_occ2      = factor(husb_occupation,
+                            labels = c("Agriculture", "Trade", "Service", "Other"))
+  )
+```
+
+```{r}
+#| label: mlr-recode-dichotomous
+
+cmc <- cmc %>%
+  mutate(
+    wife_edu_d  = ifelse(wife_edu  <= 2, "low", "high"),
+    sol_index_d = ifelse(sol_index <= 2, "low", "high")
+  )
+
+cmc %>% count(wife_edu, wife_edu_d)
+cmc %>% count(sol_index, sol_index_d)
+```
+
+```{r}
+#| label: mlr-set-reference
+
+cmc <- cmc %>%
+  mutate(
+    # VGAM requires no_use as the LAST level
+    cmc_vgam = fct_relevel(cmc_method, c("long_term", "short_term", "no_use")),
+    # nnet requires no_use as the FIRST level
+    cmc_nnet = relevel(cmc_method, ref = "no_use")
+  )
+
+levels(cmc$cmc_vgam)
+levels(cmc$cmc_nnet)
+```
+
+## Results
+
+### Sample Characteristics
+
+```{r}
+#| label: mlr-tbl-descriptive
+#| tbl-cap: "Table 2. Sample characteristics by contraceptive method"
+
+cmc %>%
+  mutate(
+    cmc_method     = factor(contraceptive_method,
+                            labels = c("No use", "Long-term", "Short-term")),
+    wife_religion2 = factor(wife_religion, labels = c("Non-Islam", "Islam")),
+    wife_working2  = factor(wife_working,  labels = c("Yes", "No")),
+    media2         = factor(media_exposure, labels = c("Good", "Not good")),
+    wife_edu2      = factor(wife_edu,  labels = c("Low", "Med-low", "Med-high", "High")),
+    husb_edu2      = factor(husb_edu,  labels = c("Low", "Med-low", "Med-high", "High")),
+    sol_index2     = factor(sol_index, labels = c("Low", "Med-low", "Med-high", "High")),
+    husb_occ2      = factor(husb_occupation,
+                            labels = c("Agriculture", "Trade", "Service", "Other"))
+  ) %>%
+  select(wife_age, wife_edu2, husb_edu2, num_children,
+         wife_religion2, wife_working2, husb_occ2,
+         sol_index2, media2, cmc_method) %>%
+  tbl_summary(
+    by = cmc_method,
+    statistic = list(
+      all_continuous()  ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    label = list(
+      wife_age       ~ "Wife's age (years)",
+      wife_edu2      ~ "Wife's education",
+      husb_edu2      ~ "Husband's education",
+      num_children   ~ "No. of children ever born",
+      wife_religion2 ~ "Religion",
+      wife_working2  ~ "Wife currently working",
+      husb_occ2      ~ "Husband's occupation",
+      sol_index2     ~ "Standard of living index",
+      media2         ~ "Media exposure"
+    ),
+    missing = "no"
+  ) %>%
+  add_overall() %>%
+  bold_labels() %>%
+  italicize_levels()
+```
+
+- Of the 1,473 women, **629 (42.7%)** used no contraception, **333 (22.6%)** used a long-term method, and **511 (34.7%)** used a short-term method.
+- Long-term users had the highest mean age and mean number of children; short-term users had the lowest mean age — refer to Table 2 for group means.
+- A greater proportion of long-term users had medium-high to high educational attainment compared with no-use and short-term users — refer to Table 2 for distribution by group.
+- Islamic religion was more prevalent in the no-use group than in the long-term use group — refer to Table 2 for group percentages.
+- Long-term users had a greater proportion at higher standard-of-living levels compared with no-use women — refer to Table 2 for distribution by group.
+
+### Unadjusted Analysis
+
+#### Simple Model 1: Wife's Religion
+
+> A simple (unadjusted) multinomial logistic regression is fitted with wife's religion as the sole predictor. This establishes the unadjusted association between religion and contraceptive method choice before any other factors are controlled.
+
+```{r}
+#| label: mlr-model1-fit
+
+fitmlog1 <- vglm(cmc_vgam ~ wife_religion2,
+                 multinomial,
+                 data = cmc)
+
+summary(fitmlog1)
+```
+
+```{r}
+#| label: mlr-model1-rrr
+
+b_m1  <- coef(fitmlog1)
+ci_m1 <- confint(fitmlog1)
+
+b_rrr_m1    <- cbind(b_m1, exp(b_m1))
+ci_b_rrr_m1 <- cbind(ci_m1, exp(ci_m1))
+tab_m1      <- cbind(b_rrr_m1, ci_b_rrr_m1)
+
+colnames(tab_m1) <- c("b", "rrr",
+                       "lower 95% b", "upper 95% b",
+                       "lower 95% rrr", "upper 95% rrr")
+
+kable(round(tab_m1, 3),
+      caption = "Table 3. Unadjusted model — Wife's Religion: Log Odds, RRR and 95% CI") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  row_spec(3:4, background = "#f0f7ff")
+```
+
+- **Long-term vs No-use**: Islamic women had significantly lower relative odds of long-term use than non-Islamic women (RRR = 0.46, 95% CI: 0.32–0.65, p < 0.001).
+- **Short-term vs No-use**: No significant difference between religious groups (RRR = 0.87, 95% CI: 0.61–1.23, p = 0.425).
+- Religion differentially suppresses long-term — but not short-term — method uptake at the unadjusted level.
+
+#### Simple Model 2: Wife's Education
+
+> Wife's education is entered as a four-level categorical predictor to examine whether there is a dose-response pattern — i.e., whether higher education is progressively associated with greater contraceptive use relative to no use.
+
+```{r}
+#| label: mlr-model2-fit
+
+fitmlog2 <- vglm(cmc_vgam ~ wife_edu2,
+                 multinomial,
+                 data = cmc)
+
+summary(fitmlog2)
+```
+
+```{r}
+#| label: mlr-model2-rrr
+
+b_m2  <- coef(fitmlog2)
+ci_m2 <- confint(fitmlog2)
+
+b_rrr_m2    <- cbind(b_m2, exp(b_m2))
+ci_b_rrr_m2 <- cbind(ci_m2, exp(ci_m2))
+tab_m2      <- cbind(b_rrr_m2, ci_b_rrr_m2)
+
+colnames(tab_m2) <- c("b", "rrr",
+                       "lower 95% b", "upper 95% b",
+                       "lower 95% rrr", "upper 95% rrr")
+
+kable(round(tab_m2, 3),
+      caption = "Table 4. Unadjusted model — Wife's Education: Log Odds, RRR and 95% CI") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+**Long-term vs No-use** (reference: low education):
+
+- Medium-low education: RRR = 2.41 (p = 0.025)
+- Medium-high education: RRR = 5.23 (p < 0.001)
+- High education: RRR = 13.54 (p < 0.001)
+
+**Short-term vs No-use** (reference: low education):
+
+- Medium-low education: RRR = 1.77 (p = 0.010)
+- Medium-high education: RRR = 2.28 (p < 0.001)
+- High education: RRR = 2.87 (p < 0.001)
+
+A clear dose-response gradient was observed for both method types. The substantially larger RRRs for long-term use indicate that education preferentially promotes uptake of long-acting methods rather than short-term alternatives.
+
+### Adjusted Analysis
+
+#### Full Model
+
+> All seven predictors are entered simultaneously to obtain adjusted estimates and to examine the effect of each variable after controlling for the others. Four-level factors are retained at this stage to inspect the coefficient pattern before deciding whether to simplify.
+
+```{r}
+#| label: mlr-model3-fit
+
+fitmlog3 <- vglm(
+  cmc_vgam ~ wife_age + wife_edu2 + wife_religion2 +
+             wife_working2 + sol_index2 + num_children + media2,
+  multinomial,
+  data = cmc
+)
+
+summary(fitmlog3)
+```
+
+Inspection of the full model coefficients for wife's education and standard of living index revealed broadly monotone effects across the four levels, supporting simplification through dichotomisation (low = levels 1–2; high = levels 3–4) for the final model.
+
+#### Final Model
+
+> Wife's education and standard of living index are each collapsed to two levels (low vs high) to improve parsimony while preserving the key contrast. This is the model from which final inference and predictions are drawn.
+
+```{r}
+#| label: mlr-model4-fit
+
+fitmlog4 <- vglm(
+  cmc_vgam ~ wife_age + wife_edu_d + wife_religion2 +
+             wife_working2 + sol_index_d + num_children + media2,
+  multinomial,
+  data = cmc
+)
+
+summary(fitmlog4)
+```
+
+#### Estimation
+
+> The log-odds coefficients (`b`) and their exponentiated forms (Relative Risk Ratios, `rrr`) are extracted, combined with 95% confidence intervals, and displayed in a single table. RRR > 1 indicates higher relative odds of that method over no use; RRR < 1 indicates lower relative odds.
+
+```{r}
+#| label: mlr-tbl-final-results
+
+b_m4  <- coef(fitmlog4)
+ci_m4 <- confint(fitmlog4)
+
+b_rrr_m4    <- cbind(b_m4, exp(b_m4))
+ci_b_rrr_m4 <- cbind(ci_m4, exp(ci_m4))
+res_m4      <- cbind(b_rrr_m4, ci_b_rrr_m4)
+
+colnames(res_m4) <- c("b", "rrr",
+                       "lower 95% b", "upper 95% b",
+                       "lower 95% rrr", "upper 95% rrr")
+
+kable(round(res_m4, 3),
+      caption = "Table 5. Adjusted multivariable model: Log Odds, RRR and 95% CI") %>%
+  kable_styling(bootstrap_options = c("striped", "hover",
+                                      "condensed", "responsive")) %>%
+  pack_rows("Long-term vs No-use (:1)", 1, nrow(res_m4) / 2) %>%
+  pack_rows("Short-term vs No-use (:2)", nrow(res_m4) / 2 + 1, nrow(res_m4))
+```
+
+#### Inference
+
+> The table above produces two sets of estimates — one per comparison equation. The following interprets each predictor's adjusted effect from Table 5.
+
+**Long-term vs No-use** (adjusted)
+
+- **Wife's age**: RRR = 0.97 (95% CI: 0.95–0.99, p = 0.003) — each additional year of age was associated with a 3% decrease in relative odds of long-term use.
+- **Wife's education** (high vs low): RRR = 4.69 (95% CI: 3.20–6.90, p < 0.001) — the strongest predictor; highly educated women had nearly five times the relative odds of long-term use.
+- **Wife's religion** (Islam vs non-Islam): RRR = 0.56 (95% CI: 0.38–0.82, p = 0.003) — Islamic women had 44% lower relative odds of long-term use.
+- **Wife's working status** (no vs yes): RRR = 0.97 (95% CI: 0.74–1.44, p = 0.848) — not statistically significant.
+- **Standard of living** (high vs low): RRR = 2.37 (95% CI: 1.57–3.57, p < 0.001) — women with higher standard of living had more than double the relative odds.
+- **Number of children**: RRR = 1.35 (95% CI: 1.25–1.46, p < 0.001) — each additional child was associated with a 35% increase in relative odds.
+- **Media exposure** (not good vs good): RRR = 0.50 (95% CI: 0.24–1.05, p = 0.068) — not statistically significant, though directionally suggestive.
+
+**Short-term vs No-use** (adjusted)
+
+- **Wife's age**: RRR = 0.90 (95% CI: 0.88–0.92, p < 0.001) — a stronger inverse effect than for long-term use; younger women preferentially chose reversible methods.
+- **Wife's education** (high vs low): RRR = 1.78 (95% CI: 1.35–2.36, p < 0.001) — significantly positive but smaller than the long-term effect (RRR 4.69 vs 1.78).
+- **Wife's religion** (Islam vs non-Islam): RRR = 0.65 (95% CI: 0.44–0.96, p = 0.028) — Islamic women had 35% lower relative odds of short-term use.
+- **Wife's working status** (no vs yes): RRR = 1.14 (p = 0.380) — not statistically significant.
+- **Standard of living** (high vs low): RRR = 1.52 (95% CI: 1.12–2.04, p = 0.006) — significant positive association.
+- **Number of children**: RRR = 1.40 (95% CI: 1.30–1.51, p < 0.001) — each additional child associated with a 40% increase in relative odds.
+- **Media exposure** (not good vs good): RRR = 0.52 (95% CI: 0.31–0.88, p = 0.015) — significant; poor media access was a barrier to short-term use, unlike for long-term use.
+
+### Prediction
+
+> Prediction is demonstrated using the simple Model 1 (wife's religion only) to keep calculations transparent. `type = "link"` returns predicted log-odds; `type = "response"` converts these to predicted probabilities on the probability scale (0 to 1).
+
+#### Predicted Log-odds
+
+```{r}
+#| label: mlr-predict-logodds
+
+head(predict.vgam(fitmlog1, type = "link"))
+```
+
+- Column 1 = predicted log-odds of **long-term vs no-use**; Column 2 = predicted log-odds of **short-term vs no-use**.
+- Since the model has only one binary predictor, only two unique rows appear: one for non-Islamic women and one for Islamic women.
+- Islamic women show a more negative value in Column 1, consistent with the negative religion coefficient (b = −0.7813) estimated above.
+
+#### Predicted Probabilities
+
+```{r}
+#| label: mlr-predict-prob
+
+head(predict.vgam(fitmlog1, type = "response"))
+```
+
+- Each row contains three predicted probabilities (no-use, long-term, short-term) that sum to exactly **1.0**.
+- Two distinct profiles appear, corresponding to non-Islamic and Islamic women.
+- Islamic women show a higher predicted probability of no-use and a lower predicted probability of long-term use — directly reflecting RRR = 0.46 from the model above.
+
+#### Predicted Probabilities for Specific Profiles
+
+> The multinomial probability formula is applied manually to verify the model output and to demonstrate how predicted probabilities are computed from log-odds coefficients.
+
+Manual probability estimation was performed for two hypothetical women — one non-Islamic and one Islamic — using the multinomial probability formula:
+
+$$P(\text{category } j) = \frac{\exp(\eta_j)}{1 + \sum_{k=1}^{J-1} \exp(\eta_k)}$$
+
+where $\eta_j$ denotes the linear predictor for category $j$ and $\eta_J = 0$ for the reference category (no-use).
+
+```{r}
+#| label: mlr-manual-prediction
+
+int1   <- coef(fitmlog1)["(Intercept):1"]
+int2   <- coef(fitmlog1)["(Intercept):2"]
+b_rel1 <- coef(fitmlog1)["wife_religion2islam:1"]
+b_rel2 <- coef(fitmlog1)["wife_religion2islam:2"]
+
+# Non-Islamic woman (wife_religion = 0)
+logit1_nonislam <- int1 + b_rel1 * 0
+logit2_nonislam <- int2 + b_rel2 * 0
+
+denom_nonislam <- 1 + exp(logit1_nonislam) + exp(logit2_nonislam)
+
+p_noUse_ni <- 1                    / denom_nonislam
+p_long_ni  <- exp(logit1_nonislam) / denom_nonislam
+p_short_ni <- exp(logit2_nonislam) / denom_nonislam
+
+cat("── Non-Islamic woman ──────────────────────────────\n")
+cat("  Log-odds Long-term vs No-use  :", round(logit1_nonislam, 4), "\n")
+cat("  Log-odds Short-term vs No-use :", round(logit2_nonislam, 4), "\n")
+cat("  P(No use)     =", round(p_noUse_ni, 4), "\n")
+cat("  P(Long-term)  =", round(p_long_ni,  4), "\n")
+cat("  P(Short-term) =", round(p_short_ni, 4), "\n")
+cat("  Sum           =", round(p_noUse_ni + p_long_ni + p_short_ni, 4), "\n\n")
+
+# Islamic woman (wife_religion = 1)
+logit1_islam <- int1 + b_rel1 * 1
+logit2_islam <- int2 + b_rel2 * 1
+
+denom_islam <- 1 + exp(logit1_islam) + exp(logit2_islam)
+
+p_noUse_is <- 1                 / denom_islam
+p_long_is  <- exp(logit1_islam) / denom_islam
+p_short_is <- exp(logit2_islam) / denom_islam
+
+cat("── Islamic woman ──────────────────────────────────\n")
+cat("  Log-odds Long-term vs No-use  :", round(logit1_islam, 4), "\n")
+cat("  Log-odds Short-term vs No-use :", round(logit2_islam, 4), "\n")
+cat("  P(No use)     =", round(p_noUse_is, 4), "\n")
+cat("  P(Long-term)  =", round(p_long_is,  4), "\n")
+cat("  P(Short-term) =", round(p_short_is, 4), "\n")
+cat("  Sum           =", round(p_noUse_is + p_long_is + p_short_is, 4), "\n")
+```
+
+**Non-Islamic woman** (`wife_religion = 0`):
+
+- Log-odds (long-term vs no-use) = 0.0132; log-odds (short-term vs no-use) = −0.0834
+- P(no-use) = 0.3409, P(long-term) = 0.3455, P(short-term) = 0.3136
+- Probabilities are roughly equal across all three categories; sum = 1.0
+
+**Islamic woman** (`wife_religion = 1`):
+
+- Log-odds (long-term vs no-use) = 0.0132 + (−0.7813) = −0.7681; log-odds (short-term vs no-use) = −0.0834 + (−0.1425) = −0.2259
+- P(no-use) = 0.4421, P(long-term) = 0.2051, P(short-term) = 0.3528
+- Islamic women have a substantially higher predicted probability of no-use and lower long-term use; sum = 1.0
+
+Both vectors match `predict.vgam(fitmlog1, type = "response")`, confirming the model calculations.
+
+### Cross-validation with nnet::multinom
+
+Results were cross-validated using `nnet::multinom()`. As `nnet` does not report p-values in its summary output, p-values were derived from the ratio of each coefficient to its standard error under a normal approximation. Confidence intervals are returned as a three-dimensional array, with one slice per outcome category.
+
+```{r}
+#| label: mlr-nnet-simple
+
+mlog_nnet <- multinom(cmc_nnet ~ wife_religion2,
+                      data  = cmc,
+                      trace = FALSE)
+
+summary(mlog_nnet)
+```
+
+```{r}
+#| label: mlr-nnet-pvalues
+
+z_stat <- summary(mlog_nnet)$coefficients /
+          summary(mlog_nnet)$standard.errors
+
+p_val <- (1 - pnorm(abs(z_stat), 0, 1)) * 2
+
+kable(round(p_val, 4),
+      caption = "Table 6. P-values from nnet::multinom — z-test") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+```{r}
+#| label: mlr-nnet-ci
+
+ci_nnet <- confint(mlog_nnet, level = 0.95)
+
+cat("=== Long-term vs No-use ===\n")
+print(round(ci_nnet[,, "long_term"], 3))
+
+cat("\n=== Short-term vs No-use ===\n")
+print(round(ci_nnet[,, "short_term"], 3))
+```
+
+```{r}
+#| label: mlr-compare-packages
+
+mlog_nnet_full <- multinom(
+  cmc_nnet ~ wife_age + wife_edu_d + wife_religion2 +
+             wife_working2 + sol_index_d + num_children + media2,
+  data  = cmc,
+  trace = FALSE
+)
+
+cat("=== Coefficients: VGAM::vglm (fitmlog4) ===\n")
+print(round(coef(fitmlog4), 4))
+
+cat("\n=== Coefficients: nnet::multinom (mlog_nnet_full) ===\n")
+print(round(coef(mlog_nnet_full), 4))
+```
+
+Coefficient estimates from `nnet::multinom` were numerically identical to those from `VGAM::vglm`, confirming that both packages maximise the same multinomial log-likelihood. Minor floating-point differences are attributable to different numerical optimisation routines, not to substantive analytical differences.
+
+## Discussion
+
+This analysis identified several independent determinants of contraceptive method choice among 1,473 married non-pregnant Indonesian women in 1987. Key findings are summarised below.
+
+- **Wife's education** was the strongest predictor of long-term use (RRR = 4.69 vs no-use) compared to a smaller effect for short-term use (RRR = 1.78). This differential suggests that education specifically promotes access to and acceptance of long-acting methods, rather than increasing contraceptive use broadly.
+
+- **Number of children** was a consistent driver of adoption regardless of method type (long-term RRR = 1.35; short-term RRR = 1.40 per child). Similar magnitudes across both comparisons indicate that unmet family planning need — reflected in a larger family — motivates contraceptive adoption generally.
+
+- **Standard of living** was independently associated with both long-term (RRR = 2.37) and short-term use (RRR = 1.52), reflecting greater financial capacity and physical access to contraceptive services.
+
+- **Wife's religion** reduced relative odds for both long-term (RRR = 0.56) and short-term use (RRR = 0.65). The stronger suppression for long-term use is consistent with the Indonesian Islamic context in the 1980s, where religious guidance accepted birth spacing but discouraged permanent or long-acting methods.
+
+- **Wife's age** was inversely associated with both method types, with a stronger effect for short-term use (RRR = 0.90 per year) than for long-term use (RRR = 0.97 per year), indicating that younger women preferentially selected reversible methods.
+
+- **Media exposure** was a significant barrier only for short-term use (RRR = 0.52, p = 0.015), not for long-term use (p = 0.068), suggesting that mass media channels may disproportionately influence uptake of short-term methods.
+
+- **Wife's working status** was not a significant predictor for either comparison after adjustment.
+
+# Correlated Binary Data {#sec-correlated}
+
+::: {.part-banner .part-correlated}
+<div class="eyebrow">Part III &middot; Clustered outcome</div>
+<h2>Hypertension Across Clinics: GLMM and GEE Compared</h2>
+<p>When observations are grouped, treating them as independent understates uncertainty. This part fits two correlation-aware models &mdash; a conditional <strong>GLMM</strong> and a marginal <strong>GEE</strong> &mdash; to hypertension data from 25 primary-care clinics, and reconciles their two scales of inference.</p>
+:::
+
+## Background and learning objectives
+
+Patients seen within the same clinic are not statistically independent. They share a catchment population, prescribing patterns, screening intensity, and unmeasured contextual exposures. Treating them as independent observations in an ordinary logistic regression understates the standard errors of the regression coefficients and inflates the type-I error rate — what the lecture notes (Kamarul Imran, 2020) call **extra-binomial variation** arising from a violation of the independence assumption.
+
+Two broad model families correct for this clustering:
+
+1.  **Conditional (cluster-specific) models** — generalised linear mixed models (GLMM) for binary outcomes, fitted with `lme4::glmer`. They describe the outcome *conditional on* the cluster's random effect. Coefficients compare two patients **within the same clinic** who differ by one unit on the predictor.
+2.  **Marginal (population-average) models** — fitted by **Generalized Estimating Equations (GEE)**. They describe how the *average* probability of the outcome in the population depends on covariates, while modelling the within-cluster correlation as a nuisance.
+
+This worked example fits both, with the full diagnostic suite recommended in Hosmer, Lemeshow & Sturdivant (2013), *Applied Logistic Regression* (3rd ed.), Chapter 9.
+
+**Research question.** Among adults attending primary-care clinics, what is the association between age, body-mass index (BMI), physical activity, and current smoking on the probability of having hypertension, after accounting for clustering of patients within clinics?
+
+**Data.** `hypertension_clinics.xlsx` contains 1000 patients distributed across 25 clinics (40 patients per clinic). The outcome `hypertension` is binary (0 = no, 1 = yes). Predictors are `age` (years), `bmi` (kg/m²), `physical_activity_hrs` (hours/week), and `smoker` (0/1). The cluster identifier is `clinic_id`.
+
+## Setup
+
+```{r cor-setup}
+# Core data manipulation and visualisation
+library(tidyverse)
+library(readxl)
+
+# Descriptive statistics in the lecturer's house style
+library(summarytools)
+library(gtsummary)
+library(flextable)
+
+# The two estimation engines used in this report
+library(lme4)         # GLMM — conditional / cluster-specific model
+library(gee)          # GEE  — marginal / population-average model
+library(geepack)      # geeglm() + QIC / QICu
+
+# Model-building diagnostics
+library(mfp)          # fractional polynomials (Hosmer et al. 2013, §9.5.2)
+
+# Tidy tabular extraction of model output
+library(broom)
+library(broom.mixed)
+library(performance)
+
+# Plotting model output
+library(sjPlot)
+library(ggplot2)
+
+# Pretty tables for the html deliverable
+library(knitr)
+
+set.seed(2026)
+theme_set(theme_minimal(base_size = 12))
+```
+
+## Data import and structure
+
+We import the spreadsheet, coerce the cluster identifier to a factor (a requirement for `gee::gee` and good practice for `glmer`), keep `smoker` as a labelled factor for descriptive tables and the GLMM, and re-cast it to integer for the GEE call (the `gee` package handles factors via the design matrix, but the integer form keeps the printed output compact).
+
+```{r cor-import}
+data_htn <- read_excel("hypertension_clinics.xlsx") |>
+  mutate(
+    clinic_id    = factor(clinic_id),
+    smoker       = factor(smoker, levels = c(0, 1), labels = c("No", "Yes")),
+    hypertension = as.integer(hypertension)
+  )
+
+glimpse(data_htn)
+```
+
+**Interpretation.** The imported dataset has 1,000 rows and 7 columns. After coercion, `clinic_id` is a factor with 25 levels, `hypertension` is integer 0/1, `smoker` is a two-level factor, and the three continuous predictors (`age`, `bmi`, `physical_activity_hrs`) are numeric. No missing values were detected, so the GEE consistency assumption of MCAR is trivially satisfied.
+
+The data follow a two-level hierarchical structure:
+
+- **Level 1** (within-clinic): the individual patient — `age`, `bmi`, `physical_activity_hrs`, `smoker`.
+- **Level 2** (between-clinic): the clinic — indexed by `clinic_id`. Twenty-five clinics, each contributing 40 patients.
+
+Because the cluster sizes are balanced and moderate, both estimation routines will be well-behaved.
+
+### Cluster sizes
+
+```{r cor-cluster-check}
+data_htn |>
+  count(clinic_id) |>
+  summarise(
+    n_clinics        = n(),
+    min_per_clinic   = min(n),
+    median_per_clinic = median(n),
+    max_per_clinic   = max(n),
+    total_patients   = sum(n)
+  ) |>
+  kable(caption = "Cluster structure: patients per clinic")
+```
+
+**Interpretation.** The cluster structure is perfectly balanced: 25 clinics, each contributing exactly 40 patients, for a total of 1,000 records. With 25 clusters the GEE sandwich variance estimator performs adequately, although 25 sits at the lower end of what large-sample GEE theory comfortably accommodates — very few clusters can inflate type-I error of robust z-tests. Balanced cluster sizes also mean that the exchangeable working correlation is computationally well-conditioned, and that adaptive Gauss-Hermite quadrature in `glmer` converges easily.
+
+## Descriptive analysis
+
+### Overall patient characteristics
+
+We summarise patient characteristics overall and stratified by hypertension status. Continuous variables are reported as mean (SD); categorical variables as n (%). Bivariate p-values come from `gtsummary`'s automatic test selection and **do not account for clustering**; treat them as a descriptive scan.
+
+```{r cor-tbl1}
+tbl_summary(
+  data_htn |> select(age, bmi, physical_activity_hrs, smoker, hypertension) |>
+    mutate(hypertension = factor(hypertension, levels = c(0, 1),
+                                 labels = c("No HTN", "HTN"))),
+  by = hypertension,
+  statistic = list(
+    all_continuous()  ~ "{mean} ({sd})",
+    all_categorical() ~ "{n} ({p}%)"
+  ),
+  digits = all_continuous() ~ 1,
+  label = list(
+    age ~ "Age (years)",
+    bmi ~ "BMI (kg/m²)",
+    physical_activity_hrs ~ "Physical activity (hours/week)",
+    smoker ~ "Current smoker"
+  )
+) |>
+  add_p() |>
+  add_overall() |>
+  modify_header(label ~ "**Characteristic**") |>
+  bold_labels() |>
+  gtsummary::as_flex_table()
+```
+
+**Reading the output.** Of 1,000 patients, 211 (21.1%) had hypertension. Hypertensive patients were on average about five years older (54.4 vs 49.5 years), had a higher BMI by roughly 1.6 kg/m² (28.0 vs 26.4), reported less weekly physical activity by approximately 0.8 hours (3.1 vs 3.9), and were more often current smokers (39% vs 27%). All four bivariate comparisons reach p \< 0.001. These p-values do **not** account for clustering, so the adjusted, clustering-corrected estimates are produced by the two models below.
+
+### Outcome prevalence by clinic
+
+A proportion-by-cluster plot is the most direct visual evidence of clustering. If clinics differ substantially in raw hypertension prevalence, an independence-assuming logistic regression will be misleading.
+
+```{r cor-prev-by-clinic}
+#| fig-cap: "Hypertension prevalence (with 95% Wilson CI) across 25 clinics. Variation around the overall mean is the visual signature of between-clinic heterogeneity that GLMM and GEE both correct for."
+prev_by_clinic <- data_htn |>
+  group_by(clinic_id) |>
+  summarise(
+    n     = n(),
+    n_htn = sum(hypertension),
+    prev  = n_htn / n,
+    se    = sqrt(prev * (1 - prev) / n),
+    lo    = pmax(0, prev - 1.96 * se),
+    hi    = pmin(1, prev + 1.96 * se),
+    .groups = "drop"
+  )
+
+overall_prev <- mean(data_htn$hypertension)
+
+ggplot(prev_by_clinic, aes(x = reorder(clinic_id, prev), y = prev)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lo, ymax = hi), width = 0.25) +
+  geom_hline(yintercept = overall_prev, linetype = "dashed", colour = "steelblue") +
+  labs(x = "Clinic (ranked by prevalence)", y = "Hypertension prevalence",
+       title = "Between-clinic variation in hypertension prevalence",
+       subtitle = paste0("Dashed line = overall prevalence (",
+                         round(overall_prev, 3), ")")) +
+  coord_flip()
+```
+
+**Interpretation.** Clinic-specific prevalence ranges from approximately 7.5% to 45.0% around an overall mean of 21.1%. The magnitude of this between-clinic dispersion exceeds what would be expected from sampling variation alone within clusters of $n_j = 40$. Many of the 95% Wilson intervals overlap one another, however, so the between-clinic variation is **modest in absolute terms** — a visual hint that the intra-cluster correlation, when we estimate it formally below, will be small rather than large. The plot motivates clustering correction even so: ignoring even a modest correlation distorts inference when the cluster size (40) is appreciable, because the *effective* sample size is smaller than the nominal 1,000.
+
+## Why ordinary logistic regression is not enough
+
+For didactic contrast we fit an **ordinary logistic regression** that ignores clinic clustering. Its coefficients are unbiased under the simplest assumptions but its standard errors are too small whenever within-cluster correlation is positive.
+
+```{r cor-ord-logit}
+m_ord <- glm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+             family = binomial(link = "logit"),
+             data   = data_htn)
+
+broom::tidy(m_ord, exponentiate = TRUE, conf.int = TRUE) |>
+  mutate(across(where(is.numeric), \(x) round(x, 4))) |>
+  kable(caption = "Ordinary logistic regression (no clustering correction) — odds ratios with 95% CI")
+```
+
+**Interpretation.** Under the (incorrect) independence assumption, each one-year increase in age is associated with a 4.5% increase in the odds of hypertension (OR 1.045, 95% CI 1.030–1.060), each one-unit increase in BMI with an 11.2% increase (OR 1.112, 95% CI 1.070–1.158), each additional hour of weekly physical activity with a 16.4% reduction (OR 0.836, 95% CI 0.774–0.898), and current smoking with roughly a doubling of the odds (OR 2.05, 95% CI 1.46–2.87). These estimates are kept as a baseline. Two correlation-aware refits follow: a conditional (GLMM) refit that adds a random clinic intercept, and a marginal (GEE) refit that adjusts only the variance.
+
+## Purposeful selection — scale checking and interaction screening
+
+Hosmer, Lemeshow & Sturdivant (2013, p. 338) are explicit that *"Statistical variable selection methods such as stepwise and best subsets are not currently available for fitting correlated data models in software packages. Thus, one must use some form of purposeful selection using Wald or Score tests with the population average model and Wald or likelihood ratio tests (depending upon the estimation method) with the cluster-specific model. Checking the scale of continuous covariates is just as important with correlated as with non-correlated data models."* They go further: *"As the standard logistic model is, in essence, a population average model, the results from the fractional polynomial analysis will, generally, produce reasonable choices"* (p. 343). We therefore run the scale check using standard logistic regression with fractional polynomials before fitting the final correlated-data models.
+
+### Fractional-polynomial scale check for age, BMI, and physical activity
+
+```{r cor-mfp-scale}
+mfp_check <- mfp(
+  hypertension ~ fp(age) + fp(bmi) + fp(physical_activity_hrs) + smoker,
+  family = binomial,
+  data   = data_htn,
+  verbose = FALSE
+)
+
+cat("Selected fractional-polynomial transformations:\n")
+print(mfp_check$fptable)
+```
+
+**Interpretation.** `mfp` searches over the standard Royston–Altman power set $\{-2, -1, -0.5, 0, 0.5, 1, 2, 3\}$ (where 0 denotes the natural logarithm) for the best one- or two-term fractional-polynomial transformation of each continuous covariate, comparing the deviance of each candidate to the linear fit. For the present data the algorithm selected `power1 = 1` (i.e., the linear form) for **age**, **BMI**, and **physical activity** — the linear-in-logit assumption is supported and no transformation is required. Following the book's reasoning (Hosmer et al. 2013, §9.5.2), this conclusion carries forward to the GEE and GLMM: standard logistic acts as the scale-checking surrogate for the marginal model, and `glmer`'s quadrature likelihood would in any case allow a re-run of `mfp` on the conditional model if the result here had been ambiguous.
+
+### Interaction screening
+
+Hosmer et al. (2013, p. 338) recommend that *"Interactions should be specified and checked for inclusion in the same manner as described in Chapter 4."* We screen the clinically plausible interactions — BMI × age, BMI × physical activity, smoker × BMI — using likelihood-ratio tests in a standard logistic regression (the population-average scale-check surrogate). A second pass through the GLMM is performed for any interaction that is significant at this stage.
+
+```{r cor-interaction-screen}
+m_main <- glm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+              family = binomial, data = data_htn)
+m_int1 <- update(m_main, . ~ . + age:bmi)
+m_int2 <- update(m_main, . ~ . + bmi:physical_activity_hrs)
+m_int3 <- update(m_main, . ~ . + smoker:bmi)
+
+tibble(
+  interaction = c("age × bmi", "bmi × physical_activity_hrs", "smoker × bmi"),
+  LRT_chisq   = c(anova(m_main, m_int1, test = "LRT")$Deviance[2],
+                  anova(m_main, m_int2, test = "LRT")$Deviance[2],
+                  anova(m_main, m_int3, test = "LRT")$Deviance[2]),
+  df          = 1,
+  p_value     = c(anova(m_main, m_int1, test = "LRT")$`Pr(>Chi)`[2],
+                  anova(m_main, m_int2, test = "LRT")$`Pr(>Chi)`[2],
+                  anova(m_main, m_int3, test = "LRT")$`Pr(>Chi)`[2])
+) |>
+  mutate(across(where(is.numeric), \(x) round(x, 4))) |>
+  kable(caption = "Interaction screening — likelihood-ratio tests on the standard logistic surrogate (purposeful selection per Hosmer et al. 2013)")
+```
+
+**Interpretation.** None of the three candidate interactions reached conventional significance (all LRT p-values \> 0.05). The mean structure is therefore retained as additive in the four main effects, consistent with the book's purposeful-selection workflow. The same conclusion would carry forward to the GLMM under `anova(m1, m1_with_interaction)`, but since the scale-check surrogate already excludes them we do not refit.
+
+## Conditional model — GLMM
+
+### Why a multilevel model?
+
+A multilevel model adds a clinic-level random effect to the linear predictor, models heterogeneity **explicitly**, and reads coefficients as effects *within* a clinic. Estimation is by maximum likelihood with adaptive Gauss-Hermite quadrature. The conditional interpretation that emerges — "two patients in the same clinic who differ by one unit on X" — is the natural one for many clinical questions, but it is *not* numerically the same coefficient a GEE would give. We will return to this distinction explicitly.
+
+### Empty (null) random-intercept model
+
+The first model contains no fixed-effect predictors. Its job is to partition the total variance into a **within-clinic** part and a **between-clinic** part, so we can quantify how much clustering matters.
+
+The model is:
+
+$$\operatorname{logit}\!\bigl[P(Y_{ij}=1 \mid u_j)\bigr] = \beta_0 + u_j, \qquad u_j \sim N(0, \sigma_u^2)$$
+
+where $Y_{ij}$ is hypertension status for patient $i$ in clinic $j$, and $u_j$ is the random intercept for clinic $j$.
+
+```{r cor-m0}
+m0 <- glmer(
+  hypertension ~ 1 + (1 | clinic_id),
+  data    = data_htn,
+  family  = binomial(link = "logit"),
+  nAGQ    = 20
+)
+summary(m0)
+```
+
+**Interpretation.**
+
+- The fixed-effect intercept was $\hat\beta_0 = -1.360$ on the logit scale, corresponding to a baseline probability of $1/(1+e^{1.36}) \approx 0.20$, which closely approximates the overall sample prevalence of 21.1%.
+- The estimated random-intercept variance was $\hat\sigma_u^2 = 0.1455$ ($\hat\sigma_u = 0.382$ on the logit scale).
+- A clinic situated one standard deviation above the mean exhibits odds of hypertension a factor of $\exp(0.382) \approx 1.47$ greater than the average clinic.
+- A clinic one standard deviation below the mean exhibits odds a factor of $\exp(-0.382) \approx 0.68$ lower than the average clinic.
+- This dispersion represents substantive between-clinic heterogeneity prior to adjustment for patient-level covariates.
+
+### Intraclass correlation coefficient (ICC)
+
+For a logit-link random-intercept model the level-1 residual variance is fixed at $\pi^2/3 \approx 3.29$ (the variance of the standard logistic distribution). The ICC is therefore:
+
+$$\rho = \frac{\sigma_u^2}{\sigma_u^2 + \pi^2/3}$$
+
+```{r cor-icc}
+var_u <- as.numeric(VarCorr(m0)$clinic_id)
+icc_manual <- var_u / (var_u + pi^2 / 3)
+
+tibble(
+  `Random intercept variance (σ²_u)` = var_u,
+  `Level-1 latent variance (π²/3)`   = pi^2 / 3,
+  `ICC`                              = icc_manual
+) |>
+  mutate(across(everything(), \(x) round(x, 4))) |>
+  kable(caption = "Variance partition from the empty GLMM")
+
+performance::icc(m0)
+```
+
+**Interpretation.** The estimated ICC was $\hat\rho = 0.1455 / (0.1455 + 3.2899) = 0.0424$ — about **4.2%** of the total latent variance in hypertension risk is attributable to between-clinic differences. The magnitude is modest in absolute terms but typical of primary-care outcomes. The ICC is non-trivial and would induce appreciable downward bias in standard errors if clustering were ignored.
+
+::: callout-tip
+### How to read the ICC
+
+The ICC is the share of the total (latent) variance in hypertension risk that sits *between* clinics rather than between patients. A value near zero means clinics behave almost identically once you account for sampling; a value above about 0.05 is usually considered substantively meaningful in health services research, and anything above 0.10 is large. Small but non-zero ICC still justifies a multilevel model because it gives honest standard errors.
+:::
+
+### Median Odds Ratio (MOR)
+
+Following Hosmer et al. (2013, §9.4.3), the ICC is supplemented with the **Median Odds Ratio**, a re-expression of the cluster variance on the odds-ratio scale that subject-matter scientists tend to find more intuitive. The book defines it (p. 329, eq. 9.15) as
+
+$$\widehat{\text{MOR}} = \exp\!\left(z_{0.75} \sqrt{2 \hat\sigma_u^2}\right) = \exp\!\left(0.6745 \sqrt{2 \hat\sigma_u^2}\right),$$
+
+and gives the verbatim interpretation: *"for two randomly chosen subjects from different sites … with the same values of the covariates in the model … the median odds for the higher risk subject … is \[MOR\] times that of the lower risk subject in all such pairs"* (Hosmer et al. 2013, p. 329).
+
+```{r cor-mor-empty}
+mor_empty <- exp(0.6745 * sqrt(2 * var_u))
+tibble(
+  Model = "Empty GLMM (m0)",
+  `σ²_u` = round(var_u, 4),
+  MOR   = round(mor_empty, 3)
+) |>
+  kable(caption = "Median Odds Ratio — empty random-intercept model")
+```
+
+**Interpretation.** For the empty model, $\widehat{\text{MOR}} = 1.31$. Translating the book's interpretation to the present data: for two randomly chosen patients from different clinics in this dataset (with no covariates in the model), the median odds ratio between the higher-risk patient and the lower-risk patient is 1.31. In half of all such randomly drawn between-clinic pairs the higher-risk patient has odds of hypertension more than 31% greater than the lower-risk patient — purely on the strength of *which clinic* they attend. This is the clinically intuitive expression of the 4.2% ICC.
+
+### Interval Odds Ratio (IOR) — note
+
+The **IOR** (Larsen et al. 2000; Hosmer et al. 2013, p. 329, eqs. 9.16–9.17) is useful when the model contains a *cluster-level* covariate (e.g., urban vs rural clinic) and one wants to express how the cluster variance widens or narrows the confidence statement about the cluster covariate. Since our four predictors are all measured at the patient level (level 1), the IOR is not directly applicable here. Were a clinic-level variable added in a follow-up analysis, it could be computed as
+
+$$\widehat{\text{IOR}}_{\text{lower / upper}} = \exp\!\left(\hat\beta \times (x_1 - x_2) \mp 1.28 \times \sqrt{2 \hat\sigma_u^2}\right).$$
+
+If the resulting interval excludes 1 the cluster-level effect remains meaningful in the presence of between-cluster variability; otherwise the cluster-level signal is swamped by the random-intercept variation.
+
+### Random-intercept model with fixed effects
+
+We now add the four patient-level covariates. The model becomes:
+
+$$\operatorname{logit}\!\bigl[P(Y_{ij}=1 \mid u_j)\bigr] = \beta_0 + \beta_1\,\text{age}_{ij} + \beta_2\,\text{bmi}_{ij} + \beta_3\,\text{PA}_{ij} + \beta_4\,\text{smoker}_{ij} + u_j$$
+
+```{r cor-m1}
+m1 <- glmer(
+  hypertension ~ age + bmi + physical_activity_hrs + smoker + (1 | clinic_id),
+  data    = data_htn,
+  family  = binomial(link = "logit"),
+  nAGQ    = 20
+)
+summary(m1)
+```
+
+**Interpretation.**
+
+- All four patient-level covariates attained statistical significance (Wald p \< 0.001), with directionality consistent with the clinical literature.
+- Age and BMI were positively associated with the log-odds of hypertension, weekly physical activity was inversely associated, and current smoking was positively associated.
+- Model fit improved substantially relative to the empty model: AIC declined from 1,027.2 (`m0`) to 941.8 (`m1`), a reduction of approximately 85 units; deviance ($-2\log L$) declined from 1,023.2 to 929.8.
+- The between-clinic variance contracted from $\hat\sigma_u^2 = 0.1455$ to $\hat\sigma_u^2 = 0.1059$, indicating that a portion of the apparent clinic-level variation in `m0` reflected differential patient case-mix.
+
+#### Sensitivity to the number of quadrature points
+
+Hosmer et al. (2013, p. 352) recommend explicitly: *"we recommend always checking the sensitivity to the choice of Q before finalizing a cluster-specific model … If the differences are not small when comparing estimates for different Q, such as changes in parameter estimates of more than 5 or 10%, then one should consider using more points if computationally feasible."* We refit `m1` with Q = 7, 11, 21 and tabulate the deviance and the four fixed-effect estimates.
+
+```{r cor-quad-sensitivity}
+quad_check <- map_dfr(
+  c(7, 11, 21),
+  function(Q) {
+    mQ <- glmer(
+      hypertension ~ age + bmi + physical_activity_hrs + smoker + (1 | clinic_id),
+      data   = data_htn,
+      family = binomial(link = "logit"),
+      nAGQ   = Q
+    )
+    fe <- fixef(mQ)
+    tibble(
+      Q                = Q,
+      `-2 logL`        = -2 * as.numeric(logLik(mQ)),
+      `beta_age`       = fe["age"],
+      `beta_bmi`       = fe["bmi"],
+      `beta_PA`        = fe["physical_activity_hrs"],
+      `beta_smokerYes` = fe["smokerYes"]
+    )
+  }
+)
+
+quad_check |>
+  mutate(across(where(is.numeric), \(x) round(x, 5))) |>
+  kable(caption = "Quadrature sensitivity for m1 — fits with Q = 7, 11, 21 adaptive Gauss-Hermite points")
+
+# Relative change from Q=7 baseline
+quad_rel <- quad_check |>
+  mutate(across(-Q,
+                ~ (.x - .x[Q == 7]) / .x[Q == 7] * 100,
+                .names = "rel_pct_{.col}"))
+quad_rel |>
+  select(Q, starts_with("rel_pct_")) |>
+  mutate(across(-Q, \(x) round(x, 4))) |>
+  kable(caption = "Percent change relative to Q = 7 baseline")
+```
+
+**Interpretation.** All four fixed-effect estimates change by **well under 1%** between Q = 7 and Q = 21, and the deviance moves by a similarly negligible amount. Hosmer et al.'s 5–10% threshold (p. 352) is not approached. We therefore conclude that the choice of `nAGQ = 20` for `m1` is adequate; no re-fitting with a larger quadrature is necessary.
+
+#### Fixed-effect table (odds ratios)
+
+```{r cor-m1-tidy}
+broom.mixed::tidy(m1, effects = "fixed", conf.int = TRUE, exponentiate = TRUE) |>
+  select(term, estimate, std.error, conf.low, conf.high, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  rename(
+    Term       = term,
+    `Adj. OR`  = estimate,
+    SE         = std.error,
+    `95% LL`   = conf.low,
+    `95% UL`   = conf.high,
+    `p-value`  = p.value
+  ) |>
+  kable(caption = "Adjusted odds ratios (cluster-specific) from the random-intercept GLMM")
+```
+
+**Interpreting the cluster-specific ORs.**
+
+The estimates above compare two patients who attend the **same clinic** and differ by one unit on the predictor in question. This is the conditional interpretation that comes naturally out of a model with random effects.
+
+- **Age — adjusted OR 1.044 (95% CI 1.028–1.059), p \< 0.001.** Among patients attending the same clinic, each additional year of age is associated with roughly a 4.4% increase in the odds of hypertension, holding BMI, weekly activity, and smoking constant. A decade of age corresponds to $\exp(10 \times 0.0428) \approx 1.53$, a 53% rise in odds.
+- **BMI — adjusted OR 1.114 (95% CI 1.070–1.160), p \< 0.001.** Within a given clinic, every one-unit rise in BMI (kg/m²) lifts the odds of hypertension by about 11.4%. Five BMI units — roughly healthy-weight to obese — translate to $\exp(5 \times 0.108) \approx 1.72$, a 72% increase.
+- **Physical activity — adjusted OR 0.838 (95% CI 0.777–0.903), p \< 0.001.** Each extra hour of weekly physical activity is linked to a 16.2% lower odds. Three extra hours per week give $\exp(-3 \times 0.177) \approx 0.59$, a 41% drop.
+- **Current smoker (Yes vs No) — adjusted OR 2.065 (95% CI 1.464–2.912), p \< 0.001.** A smoker has roughly twice the odds of hypertension compared with a non-smoker at the same clinic with comparable age, BMI, and activity level. The wider CI reflects the smaller number of smokers.
+
+::: callout-important
+### Why "in the same clinic" matters
+
+In a logit-link mixed model, the fixed-effect ORs are *conditional* on the random effect. You are not comparing a smoker in clinic A with a non-smoker in clinic B; you are comparing two patients drawn from the same clinic. This is different from a GEE result (a marginal, population-averaged OR), and the two are mathematically different in non-linear models. We make this contrast explicit — with the Neuhaus attenuation formula — in the comparison section.
+:::
+
+#### Updated ICC and MOR after adjustment
+
+```{r cor-icc-m1}
+performance::icc(m1)
+
+var_u_m1 <- as.numeric(VarCorr(m1)$clinic_id)
+mor_m1   <- exp(0.6745 * sqrt(2 * var_u_m1))
+
+tibble(
+  Model = c("Empty (m0)", "Adjusted (m1)"),
+  `σ²_u` = c(var_u, var_u_m1),
+  MOR   = c(mor_empty, mor_m1)
+) |>
+  mutate(across(where(is.numeric), \(x) round(x, 4))) |>
+  kable(caption = "Between-clinic variance and Median Odds Ratio, before and after adjustment")
+```
+
+**Interpretation.** Between-clinic variance declined from $\hat\sigma_u^2 = 0.1455$ in the empty model to $\hat\sigma_u^2 = 0.1059$ after adjustment — a reduction of approximately 27%. The MOR contracts from 1.31 (`m0`) to **1.26 (`m1`)**: for two patients with identical age, BMI, physical activity, and smoking status drawn from *different* clinics, the median odds ratio between the higher-risk and lower-risk patient is 1.26. That is, *even after adjusting for the four measured risk factors*, in half of all between-clinic pairs the patient at the higher-risk clinic still has odds of hypertension at least 26% greater than the patient at the lower-risk clinic. The residual 73% of $\hat\sigma_u^2$ (relative to `m0`) is not explained by the four measured covariates and represents genuine clinic-level effects — plausibly unmeasured case-mix, differential screening practices, neighbourhood deprivation, and stochastic variation.
+
+### Random-slope model
+
+So far each clinic has its own *baseline* risk (random intercept). The **effect** of a risk factor may also differ across clinics — the link between BMI and hypertension could be steeper in some clinics than others. To test this, add a random slope for BMI:
+
+$$\operatorname{logit}\!\bigl[P(Y_{ij}=1 \mid u_{0j}, u_{1j})\bigr] = \beta_0 + (\beta_1\,\text{bmi}_{ij} + u_{1j}\,\text{bmi}_{ij}) + \dots + u_{0j}$$
+
+```{r cor-m2}
+m2 <- glmer(
+  hypertension ~ age + bmi + physical_activity_hrs + smoker +
+                  (1 + bmi | clinic_id),
+  data    = data_htn,
+  family  = binomial(link = "logit"),
+  nAGQ    = 1,
+  control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+)
+summary(m2)
+```
+
+**Interpretation.**
+
+- The estimation procedure yielded a `boundary (singular) fit` warning, indicative of a degenerate variance component.
+- The estimated variance of the random slope for BMI was $1.16 \times 10^{-4}$, effectively zero.
+- The estimated correlation between the random intercept and the random slope was $-1$, lying on the boundary of the parameter space.
+- These diagnostics indicate the absence of detectable between-clinic variability in the BMI–hypertension association.
+- A single common slope for BMI adequately characterises the data, and the inclusion of clinic-specific slopes yields no informational gain.
+- Fixed-effect estimates were virtually unchanged from `m1` (BMI: 0.110 vs 0.108), confirming the equivalence of the simpler specification.
+
+::: callout-note
+### A practical note on estimation
+
+`lme4` restricts adaptive Gauss-Hermite quadrature (`nAGQ > 1`) to models with a single scalar random effect. Once we include a random slope, we fall back to the Laplace approximation (`nAGQ = 1`). This is standard and adequate for the cluster sizes here.
+:::
+
+#### Is the random slope worth it?
+
+```{r cor-m1-vs-m2}
+anova(m1, m2)
+```
+
+**Interpretation.** The likelihood ratio test yielded $\chi^2 = 0.146$ on 2 degrees of freedom ($p = 0.929$), providing no evidence against the simpler model. AIC rose from 941.8 (`m1`) to 945.7 (`m2`); BIC rose from 971.3 to 984.9. Both information criteria penalise the additional parameters that contribute no improvement in fit. In conjunction with the singular fit warning, the BMI–hypertension association does not vary meaningfully across clinics. The random-intercept specification (`m1`) is retained as the parsimonious working GLMM.
+
+### Visualising the random effects
+
+The random intercepts (one per clinic) are not parameters of primary interest, but they are useful diagnostically and clinically. A **caterpillar plot** ranks clinics by their random-intercept estimate, with 95% prediction intervals.
+
+```{r cor-caterpillar}
+#| fig-cap: "Caterpillar plot of clinic random intercepts from m1. Clinics whose interval excludes zero differ meaningfully from the average."
+re_tbl <- broom.mixed::tidy(m1, effects = "ran_vals", conf.int = TRUE)
+
+re_tbl |>
+  arrange(estimate) |>
+  mutate(level = factor(level, levels = level)) |>
+  ggplot(aes(x = level, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high), colour = "steelblue") +
+  coord_flip() +
+  labs(
+    x = "Clinic (ranked)",
+    y = "Random intercept (log-odds scale, deviation from overall intercept)",
+    title = "Caterpillar plot of clinic random intercepts (m1)",
+    subtitle = "Clinics whose interval excludes zero differ meaningfully from the average"
+  )
+```
+
+**How to read it.** Each point is one clinic's deviation from the overall (fixed) intercept on the log-odds scale. Clinics whose intervals sit entirely above zero have higher residual hypertension risk than the average clinic *for otherwise comparable patients*; those entirely below zero have lower residual risk. Clinics in the middle are statistically indistinguishable from the grand mean.
+
+**In this dataset.** The random-intercept standard deviation in `m1` was $\hat\sigma_u = 0.326$ on the logit scale, and empirical Bayes estimates for the 25 clinics dispersed modestly around zero. A subset of clinics at the extremes had estimates lying above or below zero, indicating residual hypertension risk that the four measured covariates do not explain. The majority of clinics had confidence intervals encompassing zero. Comparative ranking of clinics for performance evaluation is not warranted on this basis; the extremes should serve as candidates for targeted qualitative investigation, not as league-table positions.
+
+### Fixed-effects forest plot
+
+```{r cor-forest, fig.height=4}
+plot_model(
+  m1,
+  show.values  = TRUE,
+  value.offset = 0.3,
+  vline.color  = "grey50",
+  title        = "Adjusted odds ratios (cluster-specific) from m1"
+)
+```
+
+**Interpretation.** The forest plot summarises the four fixed effects graphically. All 95% CIs exclude the null value (OR = 1), supporting independent associations with hypertension. Current smoking carries the largest point estimate (OR ≈ 2.07); physical activity is the only protective factor (OR ≈ 0.84 per additional hour per week).
+
+### Prediction from the GLMM
+
+The lecture distinguishes three useful prediction quantities:
+
+1.  Prediction of the **random effect** $\hat u_j$ itself (the caterpillar plot above).
+2.  Prediction of the probability of hypertension for a patient **in a specific clinic** (fixed effect + random effect).
+3.  Prediction for the **average clinic** ($u_j = 0$), used when generalising beyond the sampled clinics.
+
+```{r cor-predictions}
+new_patient <- tibble(
+  age                   = 50,
+  bmi                   = 28,
+  physical_activity_hrs = 3,
+  smoker                = factor("No", levels = c("No", "Yes"))
+)
+
+preds_by_clinic <- crossing(new_patient, clinic_id = levels(data_htn$clinic_id)) |>
+  mutate(prob = predict(m1, newdata = pick(everything()), type = "response")) |>
+  arrange(prob)
+
+preds_by_clinic |>
+  slice(c(1:3, (n()-2):n())) |>
+  kable(digits = 3,
+      caption = "Predicted hypertension probability for the same patient profile, in the lowest- and highest-risk clinics")
+
+prob_avg_clinic <- predict(m1, newdata = new_patient, re.form = NA, type = "response")
+prob_avg_clinic
+```
+
+**Interpretation.** For a 50-year-old non-smoker with BMI 28 kg/m² and 3 hours of weekly activity, the predicted probability of hypertension ranges from approximately **0.14 in the lowest-risk clinic** to approximately **0.27 in the highest-risk clinic**. An identical patient profile thus carries an approximately twofold difference in hypertensive probability conditional on clinic of attendance. Setting the random effect to zero (`re.form = NA`) yielded a predicted probability of **0.181** for the average clinic, near the centre of the per-clinic distribution. This contrast provides a concrete demonstration of the clinical magnitude underlying the ICC (4.2%) and the MOR (1.26).
+
+### GLMM diagnostics
+
+#### Normality of the random effects — standardised empirical-Bayes residuals + Shapiro–Wilk
+
+Hosmer et al. (2013, p. 368) state: *"The best method for assessing the normality assumption of a random effect is based on the predicted values of the random effects. One can then use standard tests and plots for normality such as the normal probability (PP) or normal quantile (QQ) plots … By appropriately standardizing, the estimates should have a standard normal distribution and it is the standardized values we use in the PP or QQ plots."* The book distinguishes the **comparative** standard error (`lme4`'s default — the SE of $\hat u_j - u_j$, the prediction error) from the **diagnostic** standard error (the SE of $\hat u_j$ itself). The latter is not exported by `lme4` directly; the book notes (p. 368) that *"using the standardized 'comparative' residuals usually leads to similar conclusions about the normality assumption."* We therefore standardise with the comparative SE supplied by `ranef(..., condVar = TRUE)` and then run a Shapiro–Wilk test, exactly as the book does on p. 368.
+
+```{r cor-ranef-normality}
+re_obj  <- ranef(m1, condVar = TRUE)
+u_hat   <- re_obj$clinic_id[, 1]
+postVar <- attr(re_obj$clinic_id, "postVar")
+se_comp <- sqrt(postVar[1, 1, ])
+u_std   <- u_hat / se_comp
+
+sw <- shapiro.test(u_std)
+cat("Shapiro–Wilk on standardised (comparative) clinic random intercepts:\n",
+    "  W =", round(sw$statistic, 4), ", p =", round(sw$p.value, 4), "\n")
+
+qq_df <- tibble(u = u_std) |>
+  arrange(u) |>
+  mutate(theo = qnorm(ppoints(n())))
+
+ggplot(qq_df, aes(x = theo, y = u)) +
+  geom_point(colour = "steelblue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey40") +
+  labs(x = "Theoretical N(0,1) quantile",
+       y = "Standardised random intercept",
+       title = "Q-Q plot of standardised clinic random intercepts (m1)",
+       subtitle = paste0("Shapiro–Wilk W = ", round(sw$statistic, 3),
+                         ", p = ", signif(sw$p.value, 3)))
+```
+
+**Interpretation.** The Q-Q plot of the 25 standardised clinic-level random intercepts tracks the y = x reference line closely, and the Shapiro–Wilk test does **not** reject the normality assumption (W = `r round(sw$statistic, 3)`, p = `r round(sw$p.value, 3)`). Following the book's caveat (p. 369), Shapiro–Wilk is sensitive in large samples but the present sample of 25 random intercepts is small; the QQ-plot confirms that the normality of $u_j$ is plausible. Inference about the fixed effects in `m1` therefore does not need to be qualified by a violated random-effects distributional assumption.
+
+#### Level-1 Pearson and deviance residuals against fitted probabilities
+
+Hosmer et al. (2013, p. 367) recommend: *"In addition to looking at diagnostics in terms of clusters that might be outliers or influential we also recommend looking at the level 1 residuals for all observations using plots similar to those discussed in Section 5.3 for standard logistic regression diagnostics … An example is the plot of squared deviance residuals … against the model predicted probabilities … A similar plot may be produced using the squared Pearson residuals."* We produce both.
+
+```{r cor-level1-residuals}
+#| fig-cap: "Level-1 squared Pearson and squared deviance residuals against fitted probabilities. Two characteristic curves appear (y = 0 rising, y = 1 falling); large values are candidate outliers."
+fit_prob <- fitted(m1)
+pearson_sq  <- residuals(m1, type = "pearson")^2
+deviance_sq <- residuals(m1, type = "deviance")^2
+
+resid_df <- tibble(
+  p      = fit_prob,
+  y      = data_htn$hypertension,
+  pear2  = pearson_sq,
+  dev2   = deviance_sq
+)
+
+ggplot(resid_df, aes(x = p, y = pear2, colour = factor(y))) +
+  geom_point(alpha = 0.5) +
+  labs(x = "Fitted P(hypertension)", y = "Squared Pearson residual",
+       colour = "y",
+       title = "Squared Pearson residuals (m1)") +
+  theme(legend.position = "bottom")
+
+ggplot(resid_df, aes(x = p, y = dev2, colour = factor(y))) +
+  geom_point(alpha = 0.5) +
+  labs(x = "Fitted P(hypertension)", y = "Squared deviance residual",
+       colour = "y",
+       title = "Squared deviance residuals (m1)") +
+  theme(legend.position = "bottom")
+
+cat("Pearson residuals: max =", round(max(pearson_sq), 2),
+    "; obs with pear^2 > 5:", sum(pearson_sq > 5), "\n",
+    "Deviance residuals: max =", round(max(deviance_sq), 2),
+    "; obs with dev^2 > 5:", sum(deviance_sq > 5), "\n")
+```
+
+**Interpretation.** Both plots show the two characteristic curves the book describes: one rising for $y = 0$ (patients without hypertension, whose Pearson and deviance residuals grow as the fitted probability of hypertension rises) and one falling for $y = 1$. A small number of observations sit above the 5-unit threshold the book uses to flag candidate outliers — these are patients whose observed outcome contradicts a confident model prediction in either direction. Inspecting them: they are typical-looking patients with the modal covariate pattern, not data-entry oddities; their misfit reflects genuine residual variability rather than data problems, and we retain them.
+
+#### Variance-inflation factor check
+
+```{r cor-vif-check}
+performance::check_collinearity(m1)
+```
+
+**Interpretation.** Variance-inflation factors for all four fixed-effect predictors are well below the conventional threshold of 5 — no problematic multicollinearity. The four risk factors contribute independent information to the prediction of hypertension. The diagnostic suite collectively supports `m1` as the final GLMM for reporting.
+
+## Marginal model — GEE
+
+### The model
+
+GEE estimates the **population-average** effect of each covariate on the log-odds of hypertension. The regression equation is
+
+$$\text{logit}\{\Pr(Y_{ij} = 1 \mid x_{ij})\} = \beta_0 + \beta_1 \text{age}_{ij} + \beta_2 \text{bmi}_{ij} + \beta_3 \text{PA}_{ij} + \beta_4 \text{smoker}_{ij},$$
+
+where the within-clinic correlation is summarised by a **working correlation matrix**. The choice of working correlation does not bias the point estimates (the GEE sandwich variance is robust to mis-specification), but it does affect efficiency.
+
+For each of the working correlations recommended by the lecture notes for clustered (non-longitudinal) data we fit the same mean-structure. The practical fixes the scale at 1 (`scale.fix = TRUE, scale.value = 1`) because the binomial variance is already determined by the mean.
+
+We recast `smoker` to integer for the GEE printed output to be compact (the design matrix is identical to using the factor).
+
+```{r cor-gee-prep}
+data_htn_gee <- data_htn |>
+  mutate(smoker = as.integer(smoker) - 1L)   # "No" -> 0, "Yes" -> 1
+```
+
+### Working correlation: independence
+
+```{r cor-gee-ind, results='hide'}
+m_gee_ind <- gee(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+                 id          = clinic_id,
+                 data        = data_htn_gee,
+                 family      = binomial(link = "logit"),
+                 corstr      = "independence",
+                 scale.fix   = TRUE,
+                 scale.value = 1,
+                 maxiter     = 100)
+```
+
+```{r cor-gee-ind-show}
+summary(m_gee_ind)$coefficients |>
+  as.data.frame() |>
+  tibble::rownames_to_column("term") |>
+  mutate(
+    OR        = exp(Estimate),
+    OR_lo     = exp(Estimate - 1.96 * `Robust S.E.`),
+    OR_hi     = exp(Estimate + 1.96 * `Robust S.E.`),
+    p_robust  = 2 * pnorm(-abs(`Robust z`)),
+    across(where(is.numeric), \(x) round(x, 4))
+  ) |>
+  kable(caption = "GEE — independence working correlation. Robust (sandwich) SEs.")
+```
+
+**Reading the output.** Under an independence working correlation, the point estimates are identical to those of the ordinary logistic regression (a known algebraic property), but the standard errors are now sandwich-based. Holding the other covariates constant, the odds of hypertension increase by 4.5% per additional year of age (OR 1.045, 95% CI 1.030–1.060, p \< 0.0001), by about 11.2% per unit of BMI (OR 1.112, 95% CI 1.077–1.149, p \< 0.0001), and roughly double for current smokers compared with non-smokers (OR 2.05, 95% CI 1.46–2.88, p \< 0.0001). Each additional hour of weekly physical activity is associated with a 16% reduction (OR 0.836, 95% CI 0.762–0.916, p = 0.0001).
+
+### Working correlation: exchangeable
+
+Under exchangeable correlation every pair of patients within the same clinic shares the same correlation $\rho$. This is the natural choice for clustered (non-longitudinal) data because there is no time ordering within a clinic.
+
+```{r cor-gee-exch, results='hide'}
+m_gee_exch <- gee(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+                  id          = clinic_id,
+                  data        = data_htn_gee,
+                  family      = binomial(link = "logit"),
+                  corstr      = "exchangeable",
+                  scale.fix   = TRUE,
+                  scale.value = 1,
+                  maxiter     = 100)
+```
+
+```{r cor-gee-exch-show}
+summary(m_gee_exch)$coefficients |>
+  as.data.frame() |>
+  tibble::rownames_to_column("term") |>
+  mutate(
+    OR        = exp(Estimate),
+    OR_lo     = exp(Estimate - 1.96 * `Robust S.E.`),
+    OR_hi     = exp(Estimate + 1.96 * `Robust S.E.`),
+    p_robust  = 2 * pnorm(-abs(`Robust z`)),
+    across(where(is.numeric), \(x) round(x, 4))
+  ) |>
+  kable(caption = "GEE — exchangeable working correlation.")
+
+cat("Working correlation (exchangeable) rho =",
+    round(m_gee_exch$working.correlation[1, 2], 4), "\n")
+```
+
+**Reading the output.** The estimated within-clinic correlation is $\hat\rho = 0.019$ — small in absolute terms, consistent with the limited clinic-to-clinic spread seen in the prevalence plot and with the GLMM's modest $\hat\sigma_u^2 = 0.106$ and ICC = 4.2%. Each additional year of age is associated with a 4.3% increase in the population-average odds of hypertension (OR 1.043, 95% CI 1.028–1.058, p \< 0.0001). Each one-unit increase in BMI is associated with an 11.2% increase (OR 1.112, 95% CI 1.077–1.148, p \< 0.0001). Each additional hour of weekly physical activity is associated with a 15.9% reduction (OR 0.841, 95% CI 0.767–0.922, p = 0.0002). Current smokers have approximately twice the population-average odds of hypertension of non-smokers (OR 2.03, 95% CI 1.47–2.81, p \< 0.0001).
+
+### A note on AR(1) and unstructured working correlations
+
+AR(1) and unstructured correlations were **not fitted**. AR(1) is reserved for *longitudinal* designs in which repeated measurements have a natural time ordering; patients within a clinic have no such ordering, so AR(1) is conceptually inappropriate. The unstructured matrix would require estimating $\binom{40}{2} = 780$ pairwise correlations per clinic, which is computationally prohibitive and statistically over-parameterised. Independence and exchangeable are the only two working correlations relevant to this data structure.
+
+### Model comparison via QIC and QICu
+
+Hosmer et al. (2013, p. 339, eqs. 9.20–9.21) recommend the **Quasi-likelihood Information Criterion** to formally compare working correlation structures and the related **QICu** (which uses the AIC-style penalty $2(p+1)$) for variable selection: *"As the expression in equation (9.20) involves the estimates of the covariance matrix, the QIC is potentially useful in variable selection as well as choice of working correlation structure"* … *"QICu is only useful for variable selection and not correlation structure choice because the penalty term ignores the correlation"* (p. 340). The `gee::gee` summary does not report these, but `geepack::geeglm` does. We refit the same mean-structure twice with `geeglm` and extract QIC.
+
+```{r cor-qic-compare}
+m_geep_ind  <- geeglm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+                      id = clinic_id, data = data_htn_gee,
+                      family = binomial(link = "logit"),
+                      corstr = "independence")
+
+m_geep_exch <- geeglm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+                      id = clinic_id, data = data_htn_gee,
+                      family = binomial(link = "logit"),
+                      corstr = "exchangeable")
+
+qic_ind  <- QIC(m_geep_ind)
+qic_exch <- QIC(m_geep_exch)
+
+tibble(
+  `Working correlation` = c("Independence", "Exchangeable"),
+  QIC   = c(qic_ind["QIC"],   qic_exch["QIC"]),
+  QICu  = c(qic_ind["QICu"],  qic_exch["QICu"]),
+  CIC   = c(qic_ind["CIC"],   qic_exch["CIC"]),
+  `Quasi Lik` = c(qic_ind["Quasi Lik"], qic_exch["Quasi Lik"])
+) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  kable(caption = "QIC / QICu for the two GEE fits (geepack). Smaller QIC indicates a better working-correlation choice; QICu is the variable-selection criterion.")
+```
+
+**Interpretation.** Both QIC and QICu favour the **exchangeable** working correlation by a small margin, consistent with the modest within-clinic correlation we detected ($\hat\rho = 0.019$) and the GLMM ICC of 4.2%. The QIC gap between independence and exchangeable is small (a few units), which agrees with the near-identical odds-ratio table we saw across the two fits earlier — the sandwich estimator is robust to mis-specification, so the two structures yield similar inference. We retain the exchangeable structure as the primary GEE result for the remaining diagnostics.
+
+### Naive vs robust standard errors
+
+The single most useful diagnostic in a GEE fit is the gap between the **naive (model-based)** and **robust (sandwich)** standard errors. A large gap is the quantitative signature of within-cluster correlation: ignoring clustering would have produced standard errors equal to the naive column, leading to artificially small p-values.
+
+```{r cor-naive-vs-robust}
+summary(m_gee_exch)$coefficients |>
+  as.data.frame() |>
+  tibble::rownames_to_column("term") |>
+  transmute(
+    term,
+    Estimate         = round(Estimate, 4),
+    `Naive SE`       = round(`Naive S.E.`, 4),
+    `Robust SE`      = round(`Robust S.E.`, 4),
+    `Robust / Naive` = round(`Robust S.E.` / `Naive S.E.`, 3)
+  ) |>
+  kable(caption = "Naive vs robust standard errors from the exchangeable-GEE model. Robust/Naive >> 1 indicates positive within-cluster correlation.")
+```
+
+**In plain terms.** The robust/naive ratios are 0.99 for age, 0.82 for BMI, 1.25 for physical activity, and 0.96 for smoking. With $\hat\rho$ only 0.019, age, BMI, and smoking behave almost as if their residuals were independent, so robust SEs are similar to or slightly smaller than naive SEs. Physical activity is the exception — its robust SE is 25% *larger* than naive, indicating that its residual variability is partly between-clinic (likely reflecting clinic-level differences in catchment lifestyle). The diagnostic is *covariate-by-covariate*, not a single global multiplier, and it justifies using sandwich SEs throughout even when $\hat\rho$ is small.
+
+### Cluster-level influence diagnostics
+
+GEE is robust under mild departures, but a single high-leverage or high-influence cluster can still drive a coefficient. Hosmer et al. (2013, §9.6.1, eq. 9.29) define the GEE hat matrix (Preisser & Qaqish 1996), the **cluster leverage** as the sum of the hat-matrix diagonals for that cluster, and the cluster-deletion statistics **DCLS** (eq. 9.30 — influence on the overall fit / linear predictor) and **MCLS** (eq. 9.31 — studentised version, influence on coefficients and their variances simultaneously). These are *"available in SAS"* (p. 363). In R the full algebra is not packaged, so we compute their direct empirical analogues by **leave-one-cluster-out refitting**: for each of the 25 clinics, refit the GEE without that clinic, record the change in the four fixed-effect log-odds coefficients (a DCLS-style influence on the linear predictor), and compute a leverage-equivalent as the sum of squared standardised parameter changes (an MCLS-style scaled summary).
+
+```{r cor-cluster-influence}
+beta_full <- coef(m_geep_exch)
+se_full   <- sqrt(diag(vcov(m_geep_exch)))
+
+loo_clusters <- map_dfr(
+  levels(data_htn_gee$clinic_id),
+  function(cc) {
+    sub <- data_htn_gee |> filter(clinic_id != cc)
+    sub$clinic_id <- droplevels(sub$clinic_id)
+    fit <- tryCatch(
+      geeglm(hypertension ~ age + bmi + physical_activity_hrs + smoker,
+             id = clinic_id, data = sub,
+             family = binomial(link = "logit"),
+             corstr = "exchangeable"),
+      error = function(e) NULL)
+    if (is.null(fit)) return(NULL)
+    bd <- coef(fit) - beta_full
+    tibble(
+      clinic    = cc,
+      DCLS_like = sum(bd^2),                              # influence on linear predictor
+      MCLS_like = sum((bd / se_full)^2)                   # studentised — influence on betas / their variances
+    )
+  }
+) |>
+  arrange(desc(MCLS_like))
+
+loo_clusters |>
+  slice(1:6) |>
+  mutate(across(where(is.numeric), \(x) round(x, 5))) |>
+  kable(caption = "Top six clinics by leave-one-cluster-out influence (DCLS- and MCLS-analogue).")
+
+ggplot(loo_clusters, aes(x = reorder(clinic, MCLS_like), y = MCLS_like)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(x = "Clinic", y = "MCLS-like influence",
+       title = "Cluster-level influence diagnostic (leave-one-cluster-out)",
+       subtitle = "Higher bars = clinic whose removal moves the GEE coefficients most")
+```
+
+**Interpretation.** No clinic stands out as a strong outlier: the largest MCLS-analogue value is approximately `r round(max(loo_clusters$MCLS_like), 3)`, an order of magnitude smaller than the threshold (around 1) at which the book reports a clinic-level concern in the polypharmacy example (Hosmer et al. 2013, p. 362). The empirical leave-one-cluster-out plot ranks clinics by how much the four fixed-effect coefficients shift when the clinic is removed; the modest dispersion confirms that the GEE results are not driven by any single clinic. The book's caveat — that DCLS may understate influence because it uses the all-clusters variance estimate, making MCLS preferable in some instances (Welsch 1986; Hosmer et al. 2013, p. 363) — is honoured by our using the studentised analogue as the headline ranking.
+
+### Goodness of fit for the GEE
+
+Hosmer et al. (2013, §9.6.1) discuss several GOF tests for GEE. We apply two that are tractable in R without SAS-specific machinery: the **modified Hosmer–Lemeshow decile-of-risk** test and **Horton's score test** based on adding decile-of-risk indicators to the model. The book also presents two **residual-based** statistics from Evans (1998), Pan (2002) and Evans & Hosmer (2004) — $zX^2$ (eq. 9.26) and $zU$ (eq. 9.28) — which use the GEE hat matrix; SAS code is given in the book but no R port exists. We compute the Hosmer–Lemeshow and Horton tests and discuss the $zX^2$ / $zU$ as the next analytical step a SAS user would take.
+
+#### Modified Hosmer–Lemeshow decile-of-risk test
+
+```{r cor-hl-gee}
+fit_p <- fitted(m_geep_exch)
+hl_df <- tibble(
+  y       = data_htn_gee$hypertension,
+  p       = fit_p,
+  decile  = ntile(fit_p, 10)
+)
+
+hl_tab <- hl_df |>
+  group_by(decile) |>
+  summarise(
+    obs_1 = sum(y),
+    exp_1 = sum(p),
+    obs_0 = sum(1 - y),
+    exp_0 = sum(1 - p),
+    n     = n(),
+    .groups = "drop"
+  )
+
+C_hat <- sum( (hl_tab$obs_1 - hl_tab$exp_1)^2 / hl_tab$exp_1 +
+              (hl_tab$obs_0 - hl_tab$exp_0)^2 / hl_tab$exp_0 )
+hl_pvalue <- pchisq(C_hat, df = 8, lower.tail = FALSE)
+
+hl_tab |>
+  mutate(across(c(exp_1, exp_0), \(x) round(x, 2))) |>
+  kable(caption = sprintf(
+    "Modified Hosmer–Lemeshow decile-of-risk table for the exchangeable GEE. C-hat = %.3f, df = 8, p = %.4f.",
+    C_hat, hl_pvalue))
+```
+
+**Interpretation.** $\hat C =$ `r round(C_hat, 3)` on 8 degrees of freedom yields p = `r round(hl_pvalue, 4)`. Hosmer et al. (2013, p. 354) caution against applying this test when *"there are many cluster-level covariates; the intracluster correlation among the responses is large; the number of clusters is small and there are many observations per cluster"*. Two of those conditions apply only weakly here — all four covariates are level 1 (no cluster-level covariates), $\hat\rho = 0.019$ is small, but cluster size is moderate (40). The book judges that *"in a particular setting if none of these conditions hold then the test can be used"* — our setting is closer to the safe regime than to the unsafe one. Observed and expected counts agree closely across deciles. **Conclusion:** the modified Hosmer–Lemeshow test does not reject GEE model fit.
+
+#### Horton's score test on decile indicators
+
+Hosmer et al. (2013, p. 355) summarise Horton et al.'s (1999) test: *"The test involves forming G groups based on deciles of risk and then creating G − 1 indicator variables to identify the group membership for each observation in the data set. These indicator variables are added to the logistic regression model with all other predictors and a Score test, a chi-square test with G − 1 degrees of freedom, of the null hypothesis that the parameters for these indicator variables are all 0 \[is\] performed."* We use the Wald analogue inside the geepack fit (the Score test is not standardly exported).
+
+```{r cor-horton-test}
+hl_df2 <- hl_df |> mutate(decile = factor(decile))
+data_htn_h <- data_htn_gee |> mutate(decile = factor(ntile(fit_p, 10)))
+
+m_geep_horton <- geeglm(
+  hypertension ~ age + bmi + physical_activity_hrs + smoker + decile,
+  id = clinic_id, data = data_htn_h,
+  family = binomial(link = "logit"),
+  corstr = "exchangeable")
+
+a_h <- anova(m_geep_exch, m_geep_horton)
+print(a_h)
+```
+
+**Interpretation.** The Wald chi-square comparing the GEE with and without the nine decile-of-risk indicators gives a p-value of `r round(a_h$"P(>|Chi|)"[2], 3)`, well above 0.05. There is no evidence of a systematic decile-by-decile shift in the predicted probabilities that the four main effects fail to capture — Horton's test, like the modified Hosmer–Lemeshow above, supports the GEE fit.
+
+#### Note on the Evans–Hosmer residual statistics ($zX^2$, $zU$)
+
+The book also describes residual-based tests from Evans (1998), Pan (2002) and Evans & Hosmer (2004): $zX^2$ (eq. 9.26, the normalised Pearson chi-square using the GEE hat matrix $\mathbf{H}_G$) and $zU$ (eq. 9.28, the normalised unweighted sum-of-squared residuals). These standardise the relevant sum-of-squares against a variance derived from the working correlation, the diagonal weight matrix and the GEE hat matrix; the SAS code accompanying Evans & Li (2005) implements them. No R port is in CRAN; were a discrepancy to appear here we would replicate the SAS code via the `geepack` weight and variance matrices. With both the modified Hosmer–Lemeshow and Horton tests agreeing on adequate fit, we judge the residual tests would not change the conclusion in this dataset.
+
+## Side-by-side: GLMM (cluster-specific) vs GEE (population-average)
+
+### The two scales of inference
+
+The two model families answer related but **different** scientific questions:
+
+- **GLMM (conditional / cluster-specific):** "If two patients attended the *same* clinic and differed by one unit on X, how do their odds of hypertension compare?"
+- **GEE (marginal / population-average):** "If we increased X by one unit across the *entire population*, by how much would the population's average odds of hypertension shift?"
+
+Hosmer et al. (2013, p. 335, eq. 9.18) give the exact relationship between the two via the Neuhaus formula
+
+$$\beta_{PA} \approx \beta_S \,[1 - \rho(0)],$$
+
+where $\rho(0)$ is the intra-cluster correlation among the binary outcomes. The book explains the intuition: *"averaging across the clusters results in a curve that is not as steep as those for each cluster … the more 'extreme' clusters are 'averaged out' by others with the opposite 'extreme' … so that the population average slope is closer to 0"* (p. 335). The standard practical consequence is that **cluster-specific ORs are more extreme (further from 1) than population-average ORs whenever** $\sigma_u^2 > 0$, with the gap widening as $\sigma_u^2$ grows.
+
+```{r cor-pa-vs-cs}
+pa <- broom::tidy(m_geep_exch, exponentiate = FALSE, conf.int = FALSE) |>
+  transmute(term, beta_PA = estimate)
+cs <- broom.mixed::tidy(m1, effects = "fixed", exponentiate = FALSE) |>
+  transmute(term, beta_S = estimate)
+
+rho_hat <- m_gee_exch$working.correlation[1, 2]
+attn    <- 1 - rho_hat
+
+attn_tbl <- pa |>
+  inner_join(cs, by = "term") |>
+  filter(term != "(Intercept)") |>
+  mutate(
+    beta_S_attenuated = beta_S * attn,
+    OR_PA             = exp(beta_PA),
+    OR_S              = exp(beta_S),
+    OR_S_attenuated   = exp(beta_S_attenuated)
+  ) |>
+  mutate(across(where(is.numeric), \(x) round(x, 4)))
+
+attn_tbl |>
+  kable(caption = sprintf(
+    "Neuhaus attenuation check. Working rho-hat = %.4f, so the attenuation factor (1 - rho) = %.4f. The 'attenuated' column shows what the cluster-specific betas would shrink to under the formula.",
+    rho_hat, attn))
+```
+
+**Interpretation.** Applying the Neuhaus approximation $\beta_{PA} \approx \beta_S [1 - \hat\rho]$ with $\hat\rho = 0.019$ gives an attenuation factor of $1 - 0.019 = 0.981$ — a 1.9% shrinkage of each cluster-specific coefficient towards 0. The attenuated betas are within rounding of the GEE betas across all four covariates, mathematically reproducing the close agreement we have seen empirically between `m_gee_exch` and `m1` and showing exactly *why* the GLMM and GEE odds ratios converged in this dataset: with such a small intra-cluster correlation, $[1 - \rho(0)] \approx 1$. In a dataset with much stronger between-cluster variability the formula would predict a visible gap between $\beta_S$ and $\beta_{PA}$ — for example, $\hat\sigma_u = 0.39$ in the GLOW fracture worked example of the lecture would translate, via the corresponding latent ICC, into a meaningful attenuation.
+
+```{r cor-pa-vs-cs-or-table}
+pa_or <- broom::tidy(m_geep_exch, exponentiate = TRUE, conf.int = TRUE) |>
+  transmute(term, OR = estimate, OR_lo = conf.low, OR_hi = conf.high,
+            model = "GEE (Population average)")
+cs_or <- broom.mixed::tidy(m1, exponentiate = TRUE, conf.int = TRUE, effects = "fixed") |>
+  transmute(term, OR = estimate, OR_lo = conf.low, OR_hi = conf.high,
+            model = "GLMM (Cluster specific)")
+
+bind_rows(pa_or, cs_or) |>
+  filter(term != "(Intercept)") |>
+  mutate(across(where(is.numeric), \(x) round(x, 4))) |>
+  pivot_wider(names_from = model, values_from = c(OR, OR_lo, OR_hi)) |>
+  kable(caption = "Population-average (GEE, exchangeable) vs cluster-specific (GLMM, m1) odds ratios.")
+```
+
+**What the numbers show.** GEE and GLMM odds ratios are nearly identical: age 1.043 vs 1.044, BMI 1.112 vs 1.114, physical activity 0.841 vs 0.838, smoking 2.03 vs 2.06. Because $\hat\sigma_u^2$ is small (0.106), the attenuation factor $[1 - \hat\rho]$ is approximately 0.98, so the two scales of inference converge.
+
+### When to use which
+
+| Question type | Use | Why |
+|----|----|----|
+| "What happens to *this individual patient* if their BMI rises by 5?" | **GLMM** | Conditional on a particular clinic; cluster effects are explicit. |
+| "If we ran a population intervention that lowered average BMI by 5, what would happen to population prevalence?" | **GEE** | Marginal, averaged over the random-effects distribution. |
+| "How much of the residual variation in hypertension is at clinic level?" | **GLMM** | Only the GLMM gives a variance component, ICC, and MOR. |
+| "I just need correct standard errors and don't want to model the random-effects distribution." | **GEE** | Robust SEs without specifying the correlation correctly. |
+| "There is substantial missingness that may depend on the outcome (MAR)." | **GLMM** | GEE requires MCAR for consistency; GLMM consistency holds under MAR. |
+| "I have very few clusters (\< \~20) and want stable inference." | **GLMM** | Sandwich SEs can mis-behave with few clusters; GLMM uses model-based SEs. |
+
+In this analysis both frameworks lead to the **same scientific conclusion** — age, BMI, smoking are positively associated with hypertension; physical activity is protective — because $\hat\sigma_u^2$ is small and the Neuhaus attenuation factor is therefore close to 1. The GLMM is reported as the primary model because the assignment foregrounds the conditional interpretation, the variance component, and the MOR; the GEE is reported as the marginal counterpart, accompanied by QIC-based working-correlation selection and goodness-of-fit testing.
+
+## Reporting checklist and limitations
+
+- **Effect estimates reported.** Odds ratios with 95% CIs are reported separately under the population-average (GEE) and cluster-specific (GLMM) interpretations because they answer different scientific questions and are not interchangeable.
+- **Standard errors.** GLMM inference uses model-based SEs from `glmer` with Wald CIs. GEE inference uses the robust sandwich estimator throughout; the naive/robust comparison documents the magnitude of the clustering correction.
+- **Model building.** Scale of continuous covariates checked via fractional polynomials on the standard logistic surrogate (Hosmer et al. 2013, §9.5.2) — linear-in-logit retained for age, BMI, and physical activity. Three clinically plausible interactions screened via LRT — none significant.
+- **Working correlation.** Exchangeable structure chosen as the primary GEE result via **QIC**; independence shown for sensitivity.
+- **Variance component.** Between-clinic variance ($\hat\sigma_u^2 = 0.106$ in `m1`), latent-scale ICC (3.1%), and **MOR = 1.26** all reported.
+- **Quadrature sensitivity.** `m1` re-fitted with Q = 7, 11, 21 quadrature points. All fixed-effect estimates moved \< 1%; far below the 5–10% threshold of Hosmer et al. (2013, p. 352).
+- **Random-effects normality.** Standardised empirical-Bayes intercepts checked via QQ plot and Shapiro–Wilk; normality assumption not rejected. Note: lme4 supplies the "comparative" SE, not the "diagnostic" SE (Goldstein 2003; Hosmer et al. 2013, p. 368) — the book judges the comparative version *"usually leads to similar conclusions"*.
+- **Level-1 residuals.** Squared Pearson and squared deviance residuals plotted against fitted probabilities; characteristic curves observed; small number of large-residual observations retained as genuine misfit, not data errors.
+- **Random slopes.** A random slope for BMI was tested and rejected (singular fit; LRT p = 0.93).
+- **Goodness of fit (GEE).** Modified Hosmer–Lemeshow and Horton's score test on decile-of-risk indicators both support GEE fit. Evans–Hosmer $zX^2$ / $zU$ residual statistics not directly implemented in R but described.
+- **Cluster influence (GEE).** DCLS- and MCLS-analogue computed via leave-one-cluster-out refit; no clinic exerts outlier influence.
+- **PA vs CS attenuation.** Neuhaus formula $\beta_{PA} \approx \beta_S[1 - \rho(0)]$ verified empirically: attenuation factor $1 - 0.019 \approx 0.98$ reproduces the GEE coefficients from the GLMM coefficients to within rounding.
+- **Estimation.** GLMM by adaptive Gauss-Hermite quadrature (`nAGQ = 20` for `m0` and `m1`, Laplace for the random-slope `m2`). GEE by Liang–Zeger generalised estimating equations with the binomial-logit link.
+- **Assumptions and caveats.**
+  - GEE consistency requires that any missingness is missing completely at random (MCAR). The dataset is complete.
+  - The number of clusters (25) is at the lower end of what the sandwich estimator handles comfortably; small-sample corrections (Mancl–DeRouen) could be considered if results were borderline.
+  - GLMM consistency requires that the random-effects distribution is correctly specified (normal). The Q-Q plot and Shapiro–Wilk support this assumption here.
+- **What this analysis cannot do.** Causal interpretation requires more than correlated-data correction. The design is cross-sectional; reverse causation (e.g., hypertension diagnosis prompting reduced physical activity) cannot be ruled out.
+
+## Summary of findings
+
+- Among 1,000 patients clustered within 25 primary-care clinics, overall hypertension prevalence was **21.1%**, ranging from **7.5% to 45.0%** across clinics.
+- The empty GLMM gave a between-clinic variance of $\hat\sigma_u^2 = 0.146$, an ICC of **4.2%**, and a **Median Odds Ratio of 1.31**, confirming non-trivial clinic-level clustering.
+- Fractional-polynomial scale checks selected the linear form for age, BMI, and physical activity; the three clinically plausible interactions were not statistically significant — additive linear-in-logit specification retained.
+- After adjustment for age, BMI, weekly physical activity, and smoking (`m1`), all four covariates were independently and significantly associated with hypertension within the same clinic: age **OR 1.04 per year (1.03–1.06)**, BMI **OR 1.11 per kg/m² (1.07–1.16)**, physical activity **OR 0.84 per hour/week (0.78–0.90)**, current smoking **OR 2.07 (1.46–2.91)**.
+- Between-clinic variance fell to $\hat\sigma_u^2 = 0.106$ (a 27% reduction) and the **MOR contracted to 1.26**; both quantify the residual clinic-level signal after covariate adjustment.
+- GLMM diagnostics: quadrature sensitivity check (Q = 7, 11, 21) showed \< 1% change in every fixed effect; Shapiro–Wilk on standardised random intercepts did not reject normality; Pearson and deviance level-1 residuals showed only a small number of large values, all retained.
+- The exchangeable-GEE fit returned $\hat\rho = 0.019$ and odds ratios essentially identical to the GLMM (age 1.043, BMI 1.112, PA 0.841, smoking 2.03). **QIC** weakly favoured the exchangeable working correlation over independence.
+- **Modified Hosmer–Lemeshow** ($\hat C$ on 8 df) and **Horton's score test** on decile-of-risk indicators both supported the GEE fit. Cluster-level **DCLS- and MCLS-analogue** diagnostics flagged no clinic as outlier.
+- The naive-vs-robust SE comparison flagged **physical activity** as the covariate whose variability is most clearly partitioned between clinics (robust/naive = 1.25); the other three covariates behaved almost as if independent.
+- The **Neuhaus attenuation formula** $\beta_{PA} \approx \beta_S [1 - \rho(0)]$ predicts a 1.9% shrinkage from CS to PA betas given $\hat\rho = 0.019$ — and the empirical GEE coefficients match the GLMM coefficients to within that margin. This *quantitatively* explains the convergence between the two model families in the present dataset.
+- For a 50-year-old non-smoker with BMI 28 and 3 hours/week of activity, the GLMM predicts hypertension probability from **0.14 to 0.27 across clinics**, against an "average clinic" prediction of **0.18** — a clinically meaningful clinic-level shift even after controlling for the measured risk factors.
+
+# GitHub Repository {#sec-github}
+
+The full analytical project &mdash; the combined Quarto source, the three datasets, a synthetic-data generator, and a step-by-step reproducibility guide &mdash; is maintained under version control and published as a public GitHub repository. Cloning the repository and rendering the single `.qmd` file reproduces this entire report, every table and figure included, from the raw data.
+
+::: {.repo-box}
+<div class="gh-mark">&#128187;</div>
+<div>
+<div style="font-size:0.78rem; letter-spacing:1px; text-transform:uppercase; opacity:0.7;">Project repository</div>
+<a href="https://github.com/your-username/advanced-categorical-data-analysis">https://github.com/your-username/advanced-categorical-data-analysis</a>
+</div>
+:::
+
+**What the repository contains.** The repository is organised so that a reader can move from a high-level description to full reproduction without guesswork: a top-level `README.md` introduces the three analyses and their datasets; an `analysis/` directory holds the combined Quarto document together with the three input datasets it reads (`diabetes_sample_2200.csv`, `cmc.csv`, `hypertension_clinics.xlsx`), kept side by side so the report's relative paths resolve without edits; a `scripts/` directory holds the generator for the synthetic hypertension data; and a `REPRODUCE.md` guide lists the exact R and Quarto versions and the package installation command needed to rebuild the HTML output. An open licence accompanies the code so that the work can be reused and audited.
+
+**Reproducing the analysis.** After installing R, Quarto, and the packages listed in the reproducibility guide, the report is rebuilt with a single command, `quarto render analysis/categorical_data_analysis_combined.qmd`, executed from the repository root. Because the input data live alongside the source and are referenced by relative path, no manual path editing is required.
+
+# Reflections {#sec-reflections}
+
+This section collects individual reflections from each group member on the analytical work, the methods learned, and the collaborative process. Each reflection is intended to be approximately 200 words and will be completed by the respective author.
+
+::: {.reflection-card}
+<div class="author-name">Nazirul Munir bin Abu Hassan</div>
+<div class="author-id">Student ID: 23202537</div>
+<div class="placeholder">[Reflection placeholder &mdash; approximately 200 words to be added by Nazirul Munir bin Abu Hassan. Suggested focus: your contribution to the analyses, the categorical-data concepts you found most challenging or rewarding, and what you would do differently next time.]</div>
+<div class="wordcount">Target: ~200 words</div>
+:::
+
+::: {.reflection-card}
+<div class="author-name">Mohd Fittri Fahmi bin Fauzi</div>
+<div class="author-id">Student ID: 23202545</div>
+<div class="placeholder">[Reflection placeholder &mdash; approximately 200 words to be added by Mohd Fittri Fahmi bin Fauzi. Suggested focus: your contribution to the analyses, the categorical-data concepts you found most challenging or rewarding, and what you would do differently next time.]</div>
+<div class="wordcount">Target: ~200 words</div>
+:::
+
+::: {.reflection-card}
+<div class="author-name">Siti Nurhafizah binti Saharudin</div>
+<div class="author-id">Student ID: 23202464</div>
+<div class="placeholder">[Reflection placeholder &mdash; approximately 200 words to be added by Siti Nurhafizah binti Saharudin. Suggested focus: your contribution to the analyses, the categorical-data concepts you found most challenging or rewarding, and what you would do differently next time.]</div>
+<div class="wordcount">Target: ~200 words</div>
+:::
+
+::: {.reflection-card}
+<div class="author-name">Ahmad Zulfahmi bin Sha'ari</div>
+<div class="author-id">Student ID: 23202546</div>
+<div class="placeholder">[Reflection placeholder &mdash; approximately 200 words to be added by Ahmad Zulfahmi bin Sha'ari. Suggested focus: your contribution to the analyses, the categorical-data concepts you found most challenging or rewarding, and what you would do differently next time.]</div>
+<div class="wordcount">Target: ~200 words</div>
+:::
+
+# References
+
+The references below are consolidated across all three analyses and grouped by part. Sources cited in more than one part are listed once.
+
+**General methodological reference (all parts)**
+
+1. Hosmer DW, Lemeshow S, Sturdivant RX. *Applied Logistic Regression*, 3rd ed. Hoboken, NJ: Wiley; 2013. (Chapter 8 — ordinal models; Chapter 4 — interactions and purposeful selection; Chapter 9 — logistic regression for correlated data.)
+
+**Part I &mdash; Ordinal Logistic Regression**
+
+2. Christensen RHB. *ordinal — Regression Models for Ordinal Data*. R package version 2022.11-16; 2022. Available from: <https://cran.r-project.org/package=ordinal>
+3. Centers for Disease Control and Prevention. *Behavioral Risk Factor Surveillance System Survey Data, 2015*. Atlanta, GA: U.S. Department of Health and Human Services, CDC; 2015.
+4. UCI Machine Learning Repository. *CDC Diabetes Health Indicators Dataset*. Available from: <https://doi.org/10.24432/C53919>
+5. Brant R. Assessing proportionality in the proportional odds model for ordinal logistic regression. *Biometrics*. 1990;46(4):1171&ndash;8.
+
+**Part II &mdash; Multinomial Logistic Regression**
+
+6. Musa KI. *Multinomial Logistic Regression: Course Notes for Advanced Categorical Statistics*. Universiti Sains Malaysia; 2022.
+7. UCI Machine Learning Repository. *Contraceptive Method Choice Data Set* (1987 National Indonesia Contraceptive Prevalence Survey). Available from: <https://archive.ics.uci.edu/ml/datasets/Contraceptive+Method+Choice>
+8. Long JS, Freese J. *Regression Models for Categorical Dependent Variables Using Stata*, 3rd ed. College Station, TX: Stata Press; 2014.
+9. Yee TW. *Vector Generalized Linear and Additive Models: With an Implementation in R*. New York: Springer; 2015.
+
+**Part III &mdash; Correlated Binary Data (GLMM and GEE)**
+
+10. Musa KI. *Lecture Notes: Binary Logistic Regression for Correlated Data — DrPH Epidemiology Speciality*; 2020-04-12.
+11. Musa KI. *Practicals: Logistic Regression for Correlated Data*; 2021-04-15.
+12. Larsen K, Petersen JH, Budtz-J&oslash;rgensen E, Endahl L. Interpreting parameters in the logistic regression model with random effects. *Biometrics*. 2000;56:909&ndash;14.
+13. Neuhaus JM, Kalbfleisch JD, Hauck WW. A comparison of cluster-specific and population-averaged approaches for analyzing correlated binary data. *Int Stat Rev*. 1991;59:25&ndash;35.
+14. Pan W. Akaike's information criterion in generalized estimating equations. *Biometrics*. 2001;57:120&ndash;5.
+15. Preisser JS, Qaqish BF. Deletion diagnostics for generalised estimating equations. *Biometrika*. 1996;83:551&ndash;62.
+16. Evans SR, Hosmer DW. Goodness of fit tests in mixed effects logistic models. *Communications in Statistics — Theory and Methods*. 2004;33:1139&ndash;55.
+17. Horton NJ, Bebchuk JD, Jones CL, et al. Goodness-of-fit for GEE: an example with mental health service utilization. *Stat Med*. 1999;18:213&ndash;22.
+18. Rabe-Hesketh S, Skrondal A. *Multilevel and Longitudinal Modeling Using Stata*, 2nd ed. College Station, TX: Stata Press; 2008.

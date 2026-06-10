@@ -1,0 +1,21 @@
+# Quarto / knitr build artifacts
+/.quarto/
+*_files/
+*_cache/
+/analysis/*_files/
+/analysis/*_cache/
+/analysis/.quarto/
+
+# Rendered output (uncomment to keep HTML out of version control)
+# *.html
+
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# OS
+.DS_Store
+Thumbs.db
