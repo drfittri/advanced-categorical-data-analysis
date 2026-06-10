@@ -78,7 +78,7 @@ execute:
 /* ============================================================
    GOOGLE FONTS ASSIGNMENT
    ============================================================ */
-body, .quarto-title-block {
+body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: var(--brand-ink);
   font-size: 1.01rem;
@@ -110,7 +110,7 @@ body > .quarto-container {
    TITLE BLOCK
    ============================================================ */
 #title-block-header.quarto-title-block.default {
-  background: linear-gradient(135deg, #0f2238 0%, #1b3a5b 40%, #2360a0 75%, #2c7fb8 100%);
+  background: linear-gradient(135deg, #0f2238 0%, #1b3a5b 40%, #2360a0 75%, #2c7fb8 100%) !important;
   color: #fff;
   padding: 3rem 2.5rem 2rem;
   border-radius: var(--radius-lg);
@@ -118,6 +118,16 @@ body > .quarto-container {
   box-shadow: var(--shadow-lg);
   position: relative;
   overflow: hidden;
+}
+/* Kill any child backgrounds injected by the cosmo theme */
+#title-block-header.quarto-title-block.default .quarto-title,
+#title-block-header.quarto-title-block.default .quarto-title-block-meta,
+#title-block-header.quarto-title-block.default .quarto-title-banner,
+#title-block-header.quarto-title-block.default > div,
+#title-block-header.quarto-title-block.default > header {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 #title-block-header.quarto-title-block.default::before {
   content: "";
